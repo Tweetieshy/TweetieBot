@@ -16,12 +16,14 @@ What its not supposed to do:
 
 
 There are some Prerequisites that have to be meet:
+
 Eternal Prediction
 ICs Orbwalker (no other will work)
 Make sure all configurations in ICs are set and correct (especially hold hotkey)
-turn on "center sceen on champion"
+
 
 Features:
+
 Basic Farming, not great, but sufficient (depends on ICs Orbwalker performance actually)
 Autobuy (and check what of that he already has)
 Autolevel
@@ -37,7 +39,9 @@ Script update speed will take the same frequency as movement delay configured in
 He uses summoners in attempt to rescue himself
 It is compatible with ExtEvade to a certain degree, but not optimized for it.
 
+
 Known Flaws:
+
 He does not buy potions, neither use them (not implemented)
 Does not know anything about danger zones, he will chase low enemys even when they are protected by other enemys, till he is low himself (or dead)
 Does not follow team into teamfights, when they arent happening in his way anyway
@@ -46,7 +50,9 @@ He is mostly tested and optimized with ADCs
 It can't do Championselect / automatically start games etc, thats a limitation of GoS External i cant change
 It cant chat (even tho it was planned) due to API restrictions Feretorix implemented
 
+
 Missing/Suggested features:
+
 Jungle help at game start if top or bot
 Switching lanes automatically
 More itemsets for different roles selectable / Itemmanager?
@@ -54,6 +60,7 @@ Teamfighting follow
 
 
 Usage:
+
 On game start the bot is deactivated by default.
 
 Use this time to check your configuration of TweetieBot, especially level up keys etc.
@@ -62,6 +69,14 @@ Configure him how he shall level.
 Configure the script on/off hotkey, useful to deactivate it fast if something goes wrong or you want take control again for another reason.
 If you configured it, use the hotkey to start the bot, keep lol window as active window (GoS Ext doesnt work with lol minimized, you should know that).
 
+Turn on "center sceen on champion" before you start script.
+
+Activate the script by pressing the activation Hotkey
+
 Bot now starts to buy and walk to configured lane and... well... does his thing.
 
+If you want do something while Bot runs, first deactivate it with the activation Hotkey.
+
+It is possible to start playing a game normally and after a certain time activating Bot, 
+even though item recognition will not work properly if you didnt follow the buy order of the bot or other strange behaviours may occur, including getting stuck in terrain.
 
