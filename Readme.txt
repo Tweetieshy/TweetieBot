@@ -4,7 +4,7 @@ This is kinda the BETA of my first own script i ever wrote on lua base or even G
 
 Downloadlink: gos://lexraw.githubusercontent.com/Tweetieshy/TweetieBot/master/TweetieBot.lua
 
-newest Manual: https://github.com/Tweetieshy/TweetieBot/blob/master/TweetieBot%20Manual.txt
+newest Readme: https://github.com/Tweetieshy/TweetieBot/blob/master/Readme.txt
 
 The intention of programming the bot was
 1. Farming Blue Essence
