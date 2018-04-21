@@ -2,6 +2,9 @@ Hi,
 
 This is kinda the BETA of my first own script i ever wrote on lua base or even GoS External
 
+Downloadlink: gos://lexraw.githubusercontent.com/Tweetieshy/TweetieBot/master/TweetieBot.lua
+
+newest Manual: https://github.com/Tweetieshy/TweetieBot/blob/master/TweetieBot%20Manual.txt
 
 The intention of programming the bot was
 1. Farming Blue Essence
@@ -42,16 +45,14 @@ He is mostly tested and optimized with ADCs
 It can't do Championselect / automatically start games etc, thats a limitation of GoS External i cant change
 It cant chat (even tho it was planned) due to API restrictions Feretorix implemented
 
-Planned features:
+Missing/Suggested features:
 Jungle help at game start if top or bot
-Switching lanes
-More itemsets for different roles selectable
-Maybe Teamfighting follow
+Switching lanes automatically
+More itemsets for different roles selectable / Itemmanager?
+Teamfighting follow
 
 
-Install:
-Simply Copy TweetieBot.lua into "Scripts" folder and activate it like any other script
-
+Usage:
 On game start the bot is deactivated by default.
 
 Use this time to check your configuration of TweetieBot, especially level up keys etc.
