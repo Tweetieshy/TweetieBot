@@ -33,8 +33,9 @@ Recalling when can buy next major item or is low under tower
 He can kite a bit, even tho the logic for that is not very good
 He flees from high health champions coming too close, minions that are attacking him or when he drops low (or at least he tries)
 Avoids enemy Turrets
-script update speed will take the same frequency ad movement delay configured in ICs
+Script update speed will take the same frequency as movement delay configured in ICs
 He uses summoners in attempt to rescue himself
+It is compatible with ExtEvade to a certain degree, but not optimized for it.
 
 Known Flaws:
 He does not buy potions, neither use them (not implemented)
