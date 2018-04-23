@@ -44,7 +44,7 @@ local MaxSpellRange = 100
 local BuyDistanceToStart = 1000
 local TowerDangerZone = 800
 local TowerProtectionZone = 700
-
+local LowHealthPerLevelThreshold = 20
 local TowerSafeZone = 350
 
 -- Init Variables
