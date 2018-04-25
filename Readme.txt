@@ -12,7 +12,9 @@ newest Readme: https://github.com/Tweetieshy/TweetieBot/blob/master/Readme.txt
 	Whats the intention of this Bot?
 		
 		1. Farming Blue Essence
-		2. Dont get banned because of intentional feeding or obvious botting
+		2. Leveling
+		3. Afk playing
+		4. Dont get banned because of intentional feeding or obvious botting
 
 	What is is NOT supposed to do ?!
 		1. Play better then a player overall

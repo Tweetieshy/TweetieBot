@@ -52,7 +52,7 @@ local Leveler = {}
 local enabled = false -- Enabled on startup
 local MoveRange = 400+myHero.boundingRadius/2
 local MinionScanRange = 3000
-local MaxSpellRange = 3000
+local MaxSpellRange = 2500
 local BuyDistanceToStart = 1000
 local TowerDangerZone = 800
 local TowerProtectionZone = 700
@@ -286,6 +286,12 @@ end
 
 function Decisionmaker(send)
 	local target = GetTarget(myHero.range*1.3)
+	local getEnemys = GetHeroCount(myHero.pos, myHero.range*2, false)
+	
+	local getAllies = 0
+	if (target) then
+		getAllies = GetHeroCount(myHero.pos, myHero.range*1.5, true)
+	end
 	
 	local killtarget = GetTarget(myHero.range*2)
 	local enemytower = GetNearestEnemyTower(myHero.pos,1100) 
@@ -314,7 +320,10 @@ function Decisionmaker(send)
 	elseif enemytower and enemytower.targetID == myHero.networkID then
 		drawables[2] = {"Flee from Tower ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif not enemytower and killtarget and killtarget.health < killtarget.maxHealth*0.3 and killtarget.health+myHero.maxHealth*0.3 < myHero.health then
+	elseif getEnemys > getAllies then
+		drawables[2] = {"Flee from Enemies ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
+		Flee(send,false)
+	elseif not enemytower and killtarget and killtarget.health < killtarget.maxHealth*0.35 and killtarget.health+myHero.maxHealth*0.25 < myHero.health then
 		drawables[2] = {"Kill Attempt on " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Combo(killtarget,true)
 	elseif myHero.health < myHero.maxHealth*0.35 and not IsInBuyDistance() then
@@ -323,7 +332,7 @@ function Decisionmaker(send)
 	elseif attackedbyminions > 2 and (not target or target and not IsAARange(target))then
 		drawables[2] = {"Flee from Minions" .. attackedbyminions .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif target and IsAARangeMult(target, 0.7) and target.health > myHero.health then
+	elseif target and IsAARangeMult(target, 0.8) and target.health > myHero.health then
 		drawables[2] = {"Flee from " .. target.name .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,true)
 	elseif CanAffordNextMajorItem() and not IsInBuyDistance() then
@@ -366,12 +375,13 @@ function Walk(send)
 	if not GoToMinions(send,false) then	
 		local NextWayPoint = GetNextWaypoint(myHero.pos,false)
 		local NextTower = WaypointToTower(NextWayPoint)
+		local OwnMinion = GoToMinions(send,true)
 		
 		if NextWayPoint[1] == AllySide or NextWayPoint[1] == EnemySide and MinionsInRangeAbs(TowerToVector(NextTower), myHero.team, TowerProtectionZone) > 0 or not IsActiveWaypoint(NextWayPoint) then
 			target = GoToTower(NextWayPoint,false,send)
 			drawables[3] = {"Go to next Waypoint", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 60, Draw.Color(255, 255, 0, 0)}
-		else
-			target = GoToMinions(send,true)
+		elseif OwnMinion then
+			target = OwnMinion
 			drawables[3] = {"Go to own Minions", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 60, Draw.Color(255, 255, 0, 0)}
 		end
 		
@@ -499,7 +509,9 @@ function Recall(send, emergency)
 	local PreviousVector = WaypointToVector(PreviousWayPoint)
 	
 	local PreviousVectorSafeRecallPos = PreviousVector:Extended(NextWayPointVector,MoveRange/2)
-	
+
+	UseSummoners(send, emergency)
+
 	if PreviousWayPoint[1] == AllySide and IsActiveWaypoint(PreviousWayPoint) and PreviousVectorSafeRecallPos:DistanceTo(StartPoint) > StartPoint:DistanceTo(myHero.pos) and not IsInBuyDistance() then
 		Stop()
 		ResetModes(nil)	
@@ -535,10 +547,11 @@ function DestroyTower(send)
 	--p-rint(tostring(GetAARangeTo(nil)))
 	local ActiveEnemyTower = GetLaneTower(lane, true, true)
 	if ActiveEnemyTower and send then
-		if ActiveEnemyTower:DistanceTo(myHero.pos) > GetAARangeTo(nil) then
+		if ActiveEnemyTower:DistanceTo(myHero.pos) > GetAARangeTo(nil)*0.9 then
 			local extendedPos = ActiveEnemyTower:Extended(myHero.pos, GetAARangeTo(nil))
 			Control.SetCursorPos(t(extendedPos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(extendedPos,MoveRange), extendedPos))
 		else
+			ResetModes(nil)
 			Control.Attack(ActiveEnemyTower)
 		end
 	end
@@ -576,7 +589,7 @@ function UseSpells(send)
 	local SpellR = myHero:GetSpellData(_R)
 
 	local range = t(SpellQ.range < MaxSpellRange, SpellQ.range , 0)
-	range = t(SpellQ.width == 0 or SpellQ.range == 0, GetAARangeTo(nil) , range) --and SpellQ.range < MaxSpellRange
+	range = t(SpellQ.range == 0, GetAARangeTo(nil) , range) --and SpellQ.range < MaxSpellRange
 	local target = GetNearestEnemy(myHero.pos,range,true)	
 	if send and Ready(_Q) and target then	
 		if SpellQ.range == 0 then -- no range
@@ -598,7 +611,7 @@ function UseSpells(send)
 	
 	
 	range = t(SpellW.range < MaxSpellRange, SpellW.range , 0)
-	range = t(SpellW.width == 0 or SpellW.range == 0, GetAARangeTo(nil) , range) --and SpellW.range < MaxSpellRange
+	range = t(SpellW.range == 0, GetAARangeTo(nil) , range) --and SpellW.range < MaxSpellRange
 	local target = GetNearestEnemy(myHero.pos,range,true)	
 	if send and Ready(_W) and target then	
 		if SpellW.range == 0 then -- no range
@@ -619,7 +632,7 @@ function UseSpells(send)
 	end
 	
 	range = t(SpellE.range < MaxSpellRange, SpellE.range, 0)
-	range = t(SpellE.width == 0 or SpellE.range == 0, GetAARangeTo(nil) , range) --and SpellE.range < MaxSpellRange
+	range = t(SpellE.range == 0, GetAARangeTo(nil) , range) --and SpellE.range < MaxSpellRange
 	local target = GetNearestEnemy(myHero.pos,range,true)	
 	if send and Ready(_E) and target then	
 		if SpellE.range == 0 then -- no range
@@ -640,8 +653,8 @@ function UseSpells(send)
 	end
 	
 	
-	range = t(SpellR.range < GetAARangeTo(nil)*1.2, SpellR.range , GetAARangeTo(nil)*1.2)
-	local target = GetLowEnemy(myHero.pos,range,true)	
+	range = t(SpellR.range < MaxSpellRange, SpellR.range , MaxSpellRange)
+	local target = GetLowEnemy(myHero.pos,range,true)
 	if send and Ready(_R) and target and (target.health < target.levelData.lvl*LowHealthPerLevelThreshold or target.health/target.maxHealth < 0.3) then	
 		if SpellR.range == 0 then -- no range
 			Control.CastSpell(HK_R)	
@@ -658,14 +671,15 @@ function UseSpells(send)
 	
 end
 
-function UseSummoners(send)
+function UseSummoners(send, emergency)
 	Orb(false)
+	local FleePoint = WaypointToVector(GetNextWaypoint(myHero.pos,true))
 	if myHero:GetSpellData(4).currentCd == 0 and emergency and send then
-		Control.SetCursorPos(myHero.pos:Extended(ActiveAllyTower,MoveRange))
+		Control.SetCursorPos(myHero.pos:Extended(FleePoint,MoveRange))
 		PutKey(HK_SUMMONER_1)
 	end
 	if myHero:GetSpellData(5).currentCd == 0 and emergency and send then
-		Control.SetCursorPos(myHero.pos:Extended(ActiveAllyTower,MoveRange))
+		Control.SetCursorPos(myHero.pos:Extended(FleePoint,MoveRange))
 		PutKey(HK_SUMMONER_2)
 	end
 	Orb(true)
@@ -844,7 +858,7 @@ function GoToMinions(send, ally)
 	local minion = GetMinionInRange(myHero.pos, MinionScanRange,ally) 
 
 	--p-rint(tostring(minion))
-	if minion and (minion.pos:DistanceTo(myHero.pos) > GetAARangeTo(minion) or ally and minion.pos:DistanceTo(myHero.pos) > 200) then -- and myHero.pos:DistanceTo(GetLaneTower(lane, true, true)) > myHero.pos:DistanceTo(minion.pos)
+	if minion and (minion.pos:DistanceTo(myHero.pos) > GetAARangeTo(minion) or ally and minion.pos:DistanceTo(myHero.pos) > 200) and minion.pos:DistanceTo(StartPoint) > StartPoint:DistanceTo(myHero.pos) then -- and myHero.pos:DistanceTo(GetLaneTower(lane, true, true)) > myHero.pos:DistanceTo(minion.pos)
 		local v = myHero.pos:Extended(minion.pos, t(minion.pos:DistanceTo(myHero.pos) > MoveRange, MoveRange, minion.pos:DistanceTo(myHero.pos)))
 		drawables[3] = {v, Draw.Color(255, 0, 255, 0)}
 		drawables[4] = {"Walk to " .. t(ally, " allied ", " enemy ") .. " Minions" ,20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 90, Draw.Color(255, 0, 255, 0)}
@@ -1081,6 +1095,17 @@ function GetLowEnemy(pos,range,alive)
 		local Hero = Game.Hero(i)
 		if not (Hero.dead == alive) and Hero.isEnemy and Hero.visible and pos:DistanceTo(Hero.pos) < range and (not near or near and Hero.health < near.health) then
 			near = Hero
+		end
+	end
+	return near
+end
+
+function GetHeroCount(pos,range,allied)
+	local near = 0
+	for i = 1, Game.HeroCount() do
+		local Hero = Game.Hero(i)
+		if not (Hero.dead == false) and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
+			near = near + 1
 		end
 	end
 	return near
