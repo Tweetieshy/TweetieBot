@@ -65,7 +65,7 @@ function Kalista:LoadSpells()
 end
 
 function Kalista:LoadMenu()
-	self.Menu = MenuElement({type = MENU, id = "Kalista", name = "Kypo's Kalista", leftIcon = HeroIcon})
+	self.Menu = MenuElement({type = MENU, id = "Kalista", name = "Tweetieshy's Kalista", leftIcon = HeroIcon})
 	self.Menu:MenuElement({id = "Combo", name = "Combo", type = MENU})
 	self.Menu.Combo:MenuElement({id = "UseQ", name = "Q", value = true})
 	self.Menu.Combo:MenuElement({id = "MinionQ", name = "Use Q Minion Combo", value = true})
