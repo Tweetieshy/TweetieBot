@@ -305,7 +305,10 @@ function Kalista:Tick()
 	-- if self.Menu.Misc.QWall:Value() then
 		-- self:CastQWall()
 	-- end	
+	
+	--print(myHero.armorPenPercent .. " X " .. myHero.armorPen .. " X " .. myHero.bonusArmorPenPercent)
 		
+	
 		self:AutoJungleE()
 		self:KillstealQ()
 		self:AutoE()
@@ -394,6 +397,150 @@ function Kalista:EnemyInRange(range)
 		end
 	end
 	return count
+end
+
+function Kalista:PredDmg(target, damage)
+	local targetArmor = target.armor * myHero.armorPenPercent * myHero.bonusArmorPenPercent - myHero.armorPen
+	local damageReduction = 100 / ( 100 + targetArmor)
+	if targetArmor < 0 then
+		damageReduction = 2 - (100 / (100 - targetArmor))
+	end		
+	damage = damage * damageReduction
+	
+	for i = 1, myHero.buffCount do 
+		local buff = myHero:GetBuff(i)
+		damage = self:GetHeroBuffDmgChange(buff,damage)
+	end	
+	
+	for i = 1, target.buffCount do 
+		local buff = target:GetBuff(i)
+		damage = self:GetEnemyBuffDmgChange(target,buff,damage)
+	end	
+	
+	return damage-10 -- a bit offset for early game, better safe then sorry
+end
+
+function Kalista:GetEnemyBuffDmgChange(target,buff,damage)
+
+	if buff.count <= 0 or buff.duration <= 0 then
+		return damage
+	end	
+
+	if buff.name == "FerociousHowl" then
+		return damage*(1-(0.55+(target:GetSpellData(_R).level-1)*0.1))
+	end
+	
+	if buff.name == "MoltenShield" then
+		return damage*(1-(0.16+(target:GetSpellData(_E).level-1)*0.06))
+	end
+	
+	if buff.name == "braumeshieldbuff" then
+		return damage*(1-(0.3+(target:GetSpellData(_E).level-1)*0.025))
+	end
+	
+	if buff.name == "DianaShield" then
+		return damage-(40+(target:GetSpellData(_W).level-1)*15+target.ap*0.3)
+	end
+	
+	if buff.name == "GalioW" then
+		return damage*(1-(0.1+(target:GetSpellData(_W).level-1)*0.025+target.bonusMagicResist*0.04))
+	end
+	
+	if buff.name == "GarenW" then
+		return damage*0.4
+	end
+	
+	if buff.name == "gragaswself" then
+		return damage*(1-(0.1+(target:GetSpellData(_E).level-1)*0.02+target.ap*0.04))
+	end
+	
+	if buff.name == "malzaharpassiveshield" then
+		return damage*0.1
+	end
+
+	if buff.name == "Meditate" then
+		return damage*(1-(0.5+(target:GetSpellData(_W).level-1)*0.05))
+	end
+	
+	if buff.name == "RivenFeint" then
+		return damage-(95+(target:GetSpellData(_E).level-1)*30+target.bonusDamage)
+	end
+	
+	if buff.name == "RyzeQShield" then
+		return damage-(90+(target:GetSpellData(_Q).level-1)*30+target.ap*0.6+(target.maxMana-800)*0.03) -- roughly
+	end
+	
+	if buff.name == "sonawshield" then
+		return damage-(25+(target:GetSpellData(_W).level-1)*25+target.ap*0.3)
+	end
+	
+	if buff.name == "udyrturtleactivation" then
+		return damage-(60+(target:GetSpellData(_W).level-1)*35+target.ap*0.5)
+	end
+	
+	if buff.name == "VictorPowerTransfer" then
+		return damage-(23+(target.level-1)*4+target.ap*0.16)
+	end
+	
+	if buff.name == "viwproc" then
+		return damage-(target.maxHealth*0.1					)
+	end
+	
+	if buff.name == "sionwshieldstacks" then
+		return damage-buff.count
+	end
+	
+	if buff.name == "WarwickE" then
+		return damage-(1-(0.35+(target:GetSpellData(_E).level-1)*0.05))
+	end
+	
+	if buff.name == "Taunt" then
+		return damage-(1-(0.5)) -- Sry for static value, dont have shen/rammus
+	end
+	
+	if buff.name == "LissandraRSelf" then
+		return 0
+	end
+	
+	if buff.name == "UndyingRage" then
+		return 0
+	end
+	
+	if buff.type == 17 and buff.count > 0 then -- intervention etc
+		return 0
+	end
+
+	if buff.type == 15 and buff.count > 0 then -- parry etc
+		return 0
+	end
+	
+	if buff.type == 4 and buff.count > 0 then -- sivir spellshield etc
+		return 0
+	end
+	
+	if buff.type == 2 and buff.count > 0 then --  general shields
+		return damage-buff.count
+	end
+	
+	
+	return damage
+end
+
+function Kalista:GetHeroBuffDmgChange(buff,damage)
+	
+	if buff.count <= 0 or buff.duration <= 0 then
+		return damage
+	end
+	-- Exhaust, Press the attack, challenging smite
+	if buff.name == "summonerexhaustdebuff" then
+		return damage*0.6
+	end
+	
+	if buff.name == "itemsmitechallenge" then
+		return damage*0.8
+	end
+
+	return damage
 end
 
 -----------------------------
@@ -636,7 +783,6 @@ function Kalista:AutoJungleE()
 	end
 end
 
-
 function Kalista:ESlow()
 	if not 	self.Menu.Misc.AutoESlow:Value() then
 		return
@@ -739,7 +885,7 @@ end
 function Kalista:QDMG(unit)
     local level = myHero:GetSpellData(_Q).level
     local qdamage = (({10,70,130,190,250})[level] + 1.0 * myHero.totalDamage)
-	qdamage = HPred:CalculatePhysicalDamage(unit, qdamage)
+	qdamage = self:PredDmg(unit, qdamage)
 	return qdamage
 end
 
@@ -749,7 +895,7 @@ function Kalista:EDMG(unit)
 	if unit and Kalista:EStacks(unit) > 0 and HPred:CanTarget(unit) and HPred:IsInRange(myHero.pos, unit.pos, E.Range) then
 		--Calculate the damage to this specific target
 		damage = eDamage + Kalista:EStacks(unit) * myHero.totalDamage * .3
-		damage = HPred:CalculatePhysicalDamage(unit, damage)-5
+		damage = self:PredDmg(unit, damage)
 	end
 	return damage
 end
