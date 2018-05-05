@@ -91,8 +91,10 @@ function Kalista:LoadMenu()
 	self.Menu.Misc:MenuElement({id = "AutoE", name = "Auto E", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoJungleE", name = "Auto E on Jungle and Objectives", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoESlow", name = "Auto E for Slows (with resets)", value = true})
+	self.Menu.Misc:MenuElement({id = "PrecisionRune", name = "Precision Combat Rune", drop = {"None", "Coup de Grace", "Cut Down", "Last Stand"}})
 	-- self.Menu.Misc:MenuElement({id = "QWall", name = "Q Walljump", key = string.byte("T")})
-	
+
+
 	self.Menu:MenuElement({id = "Drawings", name = "Drawings", type = MENU})
 	--Q
 	self.Menu.Drawings:MenuElement({id = "Q", name = "Draw Q range", type = MENU})
@@ -306,7 +308,7 @@ function Kalista:Tick()
 		-- self:CastQWall()
 	-- end	
 	
-	--print(myHero.armorPenPercent .. " X " .. myHero.armorPen .. " X " .. myHero.bonusArmorPenPercent)
+	--p-rint(myHero.armorPenPercent .. " X " .. myHero.armorPen .. " X " .. myHero.bonusArmorPenPercent)
 		
 	
 		self:AutoJungleE()
@@ -400,112 +402,113 @@ function Kalista:EnemyInRange(range)
 end
 
 function Kalista:PredDmg(target, damage)
-	local targetArmor = target.armor * myHero.armorPenPercent * myHero.bonusArmorPenPercent - myHero.armorPen
-	local damageReduction = 100 / ( 100 + targetArmor)
-	if targetArmor < 0 then
-		damageReduction = 2 - (100 / (100 - targetArmor))
-	end		
-	damage = damage * damageReduction
+
+	if target.type == Obj_AI_Hero then
+		local PrecisionCombatRune = self.Menu.Misc.PrecisionRune:Value()
+		if PrecisionCombatRune == 2 then
+			if target.health/target.maxHealth < 0.4 then
+				damage = damage * 1.07
+			end
+		elseif PrecisionCombatRune == 3 then
+			local healthdifference = target.maxHealth - myHero.maxHealth
+			if healthdifference > 150 then
+				amount = amount * (1.04 + math.min(healthdifference-150, 2000) / 20 * 0.0008)
+			end
+		elseif PrecisionCombatRune == 4 then
+			local missinghealth = 1 - myHero.health/myHero.maxHealth
+			local calculatebonus = missinghealth < 0.4 and 1 or (1.05 + (math.floor(missinghealth*10 - 4)*0.02))
+			damage = damage * (calculatebonus < 1.12 and calculatebonus or 1.11)
+		end
+	end
 	
 	for i = 1, myHero.buffCount do 
 		local buff = myHero:GetBuff(i)
 		damage = self:GetHeroBuffDmgChange(buff,damage)
 	end	
-	
+
 	for i = 1, target.buffCount do 
 		local buff = target:GetBuff(i)
 		damage = self:GetEnemyBuffDmgChange(target,buff,damage)
 	end	
 	
-	return damage-10 -- a bit offset for early game, better safe then sorry
+	return damage
 end
 
 function Kalista:GetEnemyBuffDmgChange(target,buff,damage)
 
+
 	if buff.count <= 0 or buff.duration <= 0 then
 		return damage
 	end	
+		
+	if string.find(buff.name:lower(), "presstheattackdamag") then
+		return damage*(1.08  + (myHero.levelData.lvl-1)/18 * 0.04)
+	end
+	
+	if (string.find(buff.name:lower(), "boneplating.lua") or string.find(buff.name:lower(), "boneplatingcd.lua") and buff.duration == 0) and target.type == Obj_AI_Hero then
+		damage = damage - (20 + (target.levelData.lvl-1)/18 * 30)
+	end
 
-	if buff.name == "FerociousHowl" then
+	if buff.name:lower() == "ferocioushowl" then
 		return damage*(1-(0.55+(target:GetSpellData(_R).level-1)*0.1))
 	end
 	
-	if buff.name == "MoltenShield" then
-		return damage*(1-(0.16+(target:GetSpellData(_E).level-1)*0.06))
-	end
-	
-	if buff.name == "braumeshieldbuff" then
-		return damage*(1-(0.3+(target:GetSpellData(_E).level-1)*0.025))
-	end
-	
-	if buff.name == "DianaShield" then
+	if buff.name:lower() == "dianashield" then
 		return damage-(40+(target:GetSpellData(_W).level-1)*15+target.ap*0.3)
 	end
-	
-	if buff.name == "GalioW" then
-		return damage*(1-(0.1+(target:GetSpellData(_W).level-1)*0.025+target.bonusMagicResist*0.04))
-	end
-	
-	if buff.name == "GarenW" then
-		return damage*0.4
-	end
-	
-	if buff.name == "gragaswself" then
-		return damage*(1-(0.1+(target:GetSpellData(_E).level-1)*0.02+target.ap*0.04))
-	end
-	
-	if buff.name == "malzaharpassiveshield" then
-		return damage*0.1
-	end
 
-	if buff.name == "Meditate" then
-		return damage*(1-(0.5+(target:GetSpellData(_W).level-1)*0.05))
-	end
-	
-	if buff.name == "RivenFeint" then
+	if buff.name:lower() == "rivenfeint" then
 		return damage-(95+(target:GetSpellData(_E).level-1)*30+target.bonusDamage)
 	end
 	
-	if buff.name == "RyzeQShield" then
+	if buff.name:lower() == "ryzeqshield" then
 		return damage-(90+(target:GetSpellData(_Q).level-1)*30+target.ap*0.6+(target.maxMana-800)*0.03) -- roughly
 	end
 	
-	if buff.name == "sonawshield" then
+	if buff.name:lower() == "sonawshield" then
 		return damage-(25+(target:GetSpellData(_W).level-1)*25+target.ap*0.3)
 	end
 	
-	if buff.name == "udyrturtleactivation" then
+	if buff.name:lower() == "udyrturtleactivation" then
 		return damage-(60+(target:GetSpellData(_W).level-1)*35+target.ap*0.5)
 	end
 	
-	if buff.name == "VictorPowerTransfer" then
-		return damage-(23+(target.level-1)*4+target.ap*0.16)
+	if buff.name:lower() == "victorpowertransfer" then
+		return damage-(23+(target.levelData.lvl-1)*4+target.ap*0.16)
 	end
 	
-	if buff.name == "viwproc" then
+	if buff.name:lower() == "viwproc" then
 		return damage-(target.maxHealth*0.1					)
 	end
 	
-	if buff.name == "sionwshieldstacks" then
+	if buff.name:lower() == "sionwshieldstacks" then
 		return damage-buff.count
 	end
 	
-	if buff.name == "WarwickE" then
+	if buff.name:lower() == "warwicke" then
 		return damage-(1-(0.35+(target:GetSpellData(_E).level-1)*0.05))
 	end
-	
-	if buff.name == "Taunt" then
+
+	if buff.name:lower() == "taunt" then
 		return damage-(1-(0.5)) -- Sry for static value, dont have shen/rammus
 	end
 	
-	if buff.name == "LissandraRSelf" then
+	if buff.name:lower() == "lissandrarself" then
 		return 0
 	end
 	
-	if buff.name == "UndyingRage" then
+	if buff.name:lower() == "undyingrage" then
 		return 0
 	end
 	
+	if buff.name:lower() == "kindredrnodeathbuff" then
+		return 0
+	end
+
+	if buff.name:lower() == "taricr" then
+		return 0
+	end
+
 	if buff.type == 17 and buff.count > 0 then -- intervention etc
 		return 0
 	end
@@ -513,33 +516,39 @@ function Kalista:GetEnemyBuffDmgChange(target,buff,damage)
 	if buff.type == 15 and buff.count > 0 then -- parry etc
 		return 0
 	end
-	
+
 	if buff.type == 4 and buff.count > 0 then -- sivir spellshield etc
 		return 0
 	end
 	
-	if buff.type == 2 and buff.count > 0 then --  general shields
+	if buff.type == 2 and buff.count > 1 then --  general shields
 		return damage-buff.count
 	end
-	
 	
 	return damage
 end
 
 function Kalista:GetHeroBuffDmgChange(buff,damage)
-	
+		
 	if buff.count <= 0 or buff.duration <= 0 then
 		return damage
 	end
+	
 	-- Exhaust, Press the attack, challenging smite
-	if buff.name == "summonerexhaustdebuff" then
+	if buff.name:lower() == "summonerexhaustdebuff" then
 		return damage*0.6
 	end
 	
-	if buff.name == "itemsmitechallenge" then
+	if buff.name:lower() == "itemsmitechallenge" then
 		return damage*0.8
 	end
 
+	if buff.name:lower() == "itemphantomdancerdebuff" then
+		return damage*0.88
+	end
+
+
+		
 	return damage
 end
 
@@ -551,7 +560,7 @@ function Kalista:Draw()
 	if self.Menu.Drawings.Q.Enabled:Value() then Draw.Circle(myHero.pos, Q.Range, self.Menu.Drawings.Q.Width:Value(), self.Menu.Drawings.Q.Color:Value()) end
 	if self.Menu.Drawings.E.Enabled:Value() then Draw.Circle(myHero.pos, E.Range, self.Menu.Drawings.E.Width:Value(), self.Menu.Drawings.E.Color:Value()) end
 
-
+	
 	if self.Menu.Drawings.DrawQMinionCombo:Value() then
 		local target = CurrentTarget(Q.Range)
 		if target then
@@ -594,15 +603,16 @@ function Kalista:Draw()
 			for i, hero in pairs(self:GetEnemyHeroes()) do
 				local barPos = hero.hpBar
 				if not hero.dead and hero.pos2D.onScreen and barPos.onScreen and hero.visible then
-					local EDamage = (self:CanCast(_E) and Kalista:EDMG(hero) or 0)
+					local EDamage = (self:CanCast(_E) and self:EDMG(hero) or 0)
 
 					if EDamage > 0 then
 						local percentage = tostring(0.1*math.floor(1000*EDamage/(hero.health))).."%"
 						Draw.Text(percentage,20,hero.pos:To2D())
+						--Draw.Text(EDamage,30,(hero.pos - Vector(0,50,0)):To2D())									
 					end
 					
 					if EDamage > hero.health then
-						Draw.Text("KILLABLE", 24, hero.pos2D.x, hero.pos2D.y-20,Draw.Color(200,0,255,0))	
+						Draw.Text("KILLABLE", 34, hero.pos2D.x, hero.pos2D.y-20,Draw.Color(200,0,255,0))	
 					else
 						local percentHealthAfterDamage = math.max(0, hero.health - EDamage) / hero.maxHealth
 						local xPosEnd = barPos.x + barXOffset + barWidth * hero.health/hero.maxHealth
@@ -618,11 +628,11 @@ function Kalista:Draw()
 		  local minion = Game.Minion(i)
 			local barPos = minion.hpBar
 				if minion and minion.isEnemy and not minion.dead and barPos.onScreen and minion.visible then
-					local EDamage = (self:CanCast(_E) and Kalista:EDMG(minion) or 0)
-					local damage = EDamage
-					local percentage = tostring(0.1*math.floor(1000*damage/(minion.health))).."%"
+					local EDamage = (self:CanCast(_E) and self:EDMG(minion) or 0)
+					local percentage = tostring(0.1*math.floor(1000*EDamage/(minion.health))).."%"
 					if HPred:IsInRange(myHero.pos, minion.pos, E.Range) and HasBuff(minion, "kalistaexpungemarker") then
 						Draw.Text(percentage,20,minion.pos:To2D())
+						--Draw.Text(EDamage,30,(minion.pos - Vector(0,50,0)):To2D())
 					end
 				end
 		end
@@ -764,10 +774,18 @@ function Kalista:AutoE()
 
 	for i = 1, Game.HeroCount() do
 		local t = Game.Hero(i)
-		if t.isEnemy and isValidTarget(t,E.Range) and Kalista:EDMG(t) >= t.health then
+		if t.isEnemy and isValidTarget(t,E.Range) and self:EDMG(t) >= t.health then
 			Control.CastSpell(HK_E)
 		end
 	end
+
+	if myHero.health < myHero.maxHealth*0.4 then
+		HPred:CalculateIncomingDamage()
+		if HPred:GetIncomingDamage(myHero) > myHero.health then
+			Control.CastSpell(HK_E)
+		end
+	end
+
 end
 
 function Kalista:AutoJungleE()
@@ -777,7 +795,7 @@ function Kalista:AutoJungleE()
 
 	for i = 1, Game.MinionCount() do
 		local t = Game.Minion(i)
-		if t.team == 300 and isValidTarget(t,E.Range) and Kalista:EDMG(t) >= t.health then
+		if t.team == 300 and isValidTarget(t,E.Range) and self:EDMG(t) >= t.health then
 			Control.CastSpell(HK_E)
 		end
 	end
@@ -792,7 +810,7 @@ function Kalista:ESlow()
 	for i = 1, Game.MinionCount() do
 		local minion = Game.Minion(i)
 		if minion and minion.isEnemy and isValidTarget(minion,E.Range) and HasBuff(minion, "kalistaexpungemarker") then
-			local damage = (self:CanCast(_E) and Kalista:EDMG(minion) or 0)
+			local damage = (self:CanCast(_E) and self:EDMG(minion) or 0)
 			if damage >= minion.health then
 				ECastReset = true
 			end
@@ -805,7 +823,7 @@ function Kalista:ESlow()
 
 	for i = 1, Game.HeroCount() do
 		local t  = Game.Hero(i)
-		if isValidTarget(t,E.Range) and t.isEnemy and not Kalista:EnemyCCD(t) and Kalista:EDMG(t) >= 0 and HasBuff(t, "kalistaexpungemarker")then
+		if isValidTarget(t,E.Range) and t.isEnemy and not self:EnemyCCD(t) and self:EDMG(t) >= 0 and HasBuff(t, "kalistaexpungemarker")then
 			Control.CastSpell(HK_E)
 			return
 		end
@@ -829,7 +847,7 @@ function Kalista:Clear()
 				if self:CanCast(_Q) then 
 					if self.Menu.Clear.UseQ:Value() and minion then
 						if ValidTarget(minion, Q.Range) and myHero.pos:DistanceTo(minion.pos) < Q.Range and not minion.dead then
-							local Qdamage = Kalista:QDMG(minion)
+							local Qdamage = self:QDMG(minion)
 							if Qdamage >= self:HpPred(minion,1) + minion.hpRegen * 1 then
 								if minion:GetCollision(40, Q.Range, 0.10) - 1 >= 2 then
 									self:CastSpell(HK_Q, minion)
@@ -846,7 +864,7 @@ function Kalista:Clear()
 	for i = 1, Game.MinionCount() do
 	local m = Game.Minion(i)
 		if m.isEnemy and isValidTarget(m,E.Range) then
-			if Kalista:EDMG(m) > m.health then
+			if self:EDMG(m) > m.health then
 				minions = minions + 1	
 			end
 			if minions >= self.Menu.Clear.ECount:Value() then
@@ -867,7 +885,7 @@ function Kalista:Lasthit()
 		local level = myHero:GetSpellData(_Q).level	
   		for i = 1, Game.MinionCount() do
 			local minion = Game.Minion(i)
-			local Qdamage = Kalista:QDMG(minion)
+			local Qdamage = self:QDMG(minion)
 		    local castpos,HitChance, pos = TPred:GetBestCastPosition(minion, Q.Delay , Q.Width, Q.Range, Q.Speed, myHero.pos, not Q.ignorecol, Q.Type )
 			if myHero.pos:DistanceTo(minion.pos) < Q.Range and self.Menu.Lasthit.UseQ:Value() and minion.isEnemy and not minion.dead then
 				if Qdamage >= self:HpPred(minion,1) and (HitChance > 0 ) then
@@ -883,21 +901,21 @@ end
 -----------------------------
 
 function Kalista:QDMG(unit)
-    local level = myHero:GetSpellData(_Q).level
-    local qdamage = (({10,70,130,190,250})[level] + 1.0 * myHero.totalDamage)
+    local qdamage = getdmg("Q",unit,myHero)
 	qdamage = self:PredDmg(unit, qdamage)
 	return qdamage
 end
 
 function Kalista:EDMG(unit)
-	local eDamage= 20 + (myHero:GetSpellData(_E).level -1) * 10 + myHero.totalDamage * 0.6
+
 	local damage = 0
-	if unit and Kalista:EStacks(unit) > 0 and HPred:CanTarget(unit) and HPred:IsInRange(myHero.pos, unit.pos, E.Range) then
+	if unit and self:EStacks(unit) > 0 and HPred:CanTarget(unit) and HPred:IsInRange(myHero.pos, unit.pos, E.Range) then
 		--Calculate the damage to this specific target
-		damage = eDamage + Kalista:EStacks(unit) * myHero.totalDamage * .3
+		damage = getdmg("E",unit,myHero)
 		damage = self:PredDmg(unit, damage)
+		
 	end
-	return damage
+	return damage - 1 -- Better safe then sorry, fend off some rounding errors
 end
 
 function isValidTarget(obj,range)
@@ -916,7 +934,7 @@ function Kalista:KillstealQ()
 		if self:EnemyInRange(Q.Range) then 
 			local level = myHero:GetSpellData(_Q).level	
 			local castpos,HitChance, pos = TPred:GetBestCastPosition(target, Q.Delay , Q.Width, Q.Range,Q.Speed, myHero.pos, not Q.ignorecol, Q.Type )
-		   	local Qdamage = Kalista:QDMG(target)
+		   	local Qdamage = self:QDMG(target)
 			if Qdamage >= self:HpPred(target,1) + target.hpRegen * 1 then
 			if (HitChance > 0 ) and self:CanCast(_Q) then
 			    Control.CastSpell(HK_Q,castpos)
