@@ -441,15 +441,21 @@ function Kalista:PredDmg(target, damage)
 end
 
 function Kalista:UseBotrk()
-		local target = (_G.SDK and _G.SDK.TargetSelector:GetTarget(300, _G.SDK.DAMAGE_TYPE_PHYSICAL)) or (_G.GOS and _G.GOS:GetTarget(300,"AD"))
-		if target then 
-			local botrkitem = GetInventorySlotItem(3153) or GetInventorySlotItem(3144)
-			if botrkitem then
-				local keybindings = { [ITEM_1] = HK_ITEM_1, [ITEM_2] = HK_ITEM_2, [ITEM_3] = HK_ITEM_3, [ITEM_4] = HK_ITEM_4, [ITEM_5] = HK_ITEM_5, [ITEM_6] = HK_ITEM_6}
-				Control.CastSpell(keybindings[botrkitem],target.pos)
-			end
+	local target = (_G.SDK and _G.SDK.TargetSelector:GetTarget(300, _G.SDK.DAMAGE_TYPE_PHYSICAL)) or (_G.GOS and _G.GOS:GetTarget(300,"AD"))
+	if target then 			
+		local keybindings = { [ITEM_1] = HK_ITEM_1, [ITEM_2] = HK_ITEM_2, [ITEM_3] = HK_ITEM_3, [ITEM_4] = HK_ITEM_4, [ITEM_5] = HK_ITEM_5, [ITEM_6] = HK_ITEM_6}
+		
+		local botrkitem1 = GetInventorySlotItem(3153)
+		if botrkitem1 and myHero:GetSpellData(botrkitem1).currentCd == 0 then
+			Control.CastSpell(keybindings[botrkitem1],target.pos)
+		end
+		
+		local botrkitem2 = GetInventorySlotItem(3144)
+		if botrkitem2 and myHero:GetSpellData(botrkitem2).currentCd == 0 then
+			Control.CastSpell(keybindings[botrkitem2],target.pos)
 		end
 	end
+end
 
 -----------------------------
 -- DRAWINGS
@@ -670,9 +676,9 @@ function Kalista:Combo()
 		self:MinionQCombo()
 	end
 	
-	--if self.Menu.Combo.UseBotrk:Value() then
-	--	UseBotrk()
-	--end
+	if self.Menu.Combo.UseBotrk:Value() then
+		self:UseBotrk()
+	end
 end
 
 function Kalista:AutoE()
