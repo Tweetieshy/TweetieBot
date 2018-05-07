@@ -63,7 +63,7 @@ local TowerProtectionZone = 700
 local HitChanceModifier = 0.25
 local TowerSafeZone = 350
 local LowHealthPerLevelThreshold = 20
-local FleeDistanceMulti = 2 -- Used for FleeModeMulti = 1 its a MULTIPLIER of OWN AA Range
+local FleeDistanceMulti = 1.5 -- Used for FleeModeMulti = 1 its a MULTIPLIER of OWN AA Range
 local FleeDistancePlain = 600 -- Used for FleeModeMulti = 2 Fixed Range (for example 650 for caitlyn AA range, roughly)
 local FleeModeMulti = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee regarding on Fixed safety range
 local FleeDistanceSingle = 0.8
@@ -344,12 +344,15 @@ function Decisionmaker(send)
 	elseif getEnemys > getAllies then
 		drawables[2] = {"Flee from Enemies ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif not enemytower and killtarget and (killtarget.health < killtarget.maxHealth*0.3 or killtarget.health+myHero.maxHealth*0.25 < myHero.health or getEnemys < getAllies) then
+	elseif not enemytower and killtarget and (killtarget.health < killtarget.maxHealth*0.3 or killtarget.health+myHero.maxHealth*0.25 < myHero.health) then
 		drawables[2] = {"Kill Attempt on " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Combo(killtarget,true)
 	elseif myHero.health < myHero.maxHealth*0.35 and not IsInBuyDistance() then
 		drawables[2] = {"Flee and Recall ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}	
 		Recall(send, true)
+	--elseif not enemytower and killtarget and getEnemys < getAllies then
+		--drawables[2] = {"Teamfighting to " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
+		--Combo(killtarget,true)
 	elseif attackedbyminions > 2 and (not target or target and not IsAARange(target)) or attackedbyminions > 5 and myHero.health < myHero.maxHealth*0.7  then
 		drawables[2] = {"Flee from Minions" .. attackedbyminions .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
@@ -614,7 +617,7 @@ function UseSpells(send)
 	local target = GetNearestEnemy(myHero.pos,range,true)	
 	--p-rint("Q Range " .. range .. " " .. tostring(target) .. " " .. SpellQ.cd)
 	if send and Ready(_Q) and target and SpellQ.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...
-		--p-rint("cast Q attempt " .. range)
+
 		if SpellQ.range == 0 or SpellQ.width == 0 then -- no range
 			Control.CastSpell(HK_Q)	
 			CastStart = true
@@ -637,7 +640,6 @@ function UseSpells(send)
 	target = GetNearestEnemy(myHero.pos,range,true)	
 	--print("W Range " .. range .. " " .. tostring(target) .. " " .. SpellW.cd)
 	if send and Ready(_W) and target and SpellW.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...	
-		--print("cast W attempt " .. range)
 		if SpellW.range == 0 or SpellW.width == 0 then -- no range
 			Control.CastSpell(HK_W)	
 			CastStart = true
@@ -1136,7 +1138,10 @@ function GetHeroCount(pos,range,allied)
 	for i = 1, Game.HeroCount() do
 		local Hero = Game.Hero(i)
 		if Hero.dead ~= true and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
-			near = near + 1
+			local enemy = GetTarget(range)
+			if not allied or allied and (enemy and enemy.pos:DistanceTo(Hero.pos) < enemy.pos:DistanceTo(myHero.pos) or not enemy) and Hero ~= myHero then
+				near = near + 1
+			end
 		end
 	end
 	return near
