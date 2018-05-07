@@ -234,7 +234,6 @@ function LoadMenu()
 	Tweetiebot:MenuElement({id = "togglelane", name = "Toggle Main Lane", key = string.byte("0"), callback = function(cb) if Control.IsKeyDown(Tweetiebot.togglelane:Key()) then lane = lane%3+1; end; end });
 	Tweetiebot:MenuElement({ id = "Keys", name = "Keys Settings", type = MENU });
 		Tweetiebot.Keys:MenuElement({id = "Recall", name = "Recall key", key = string.byte("M") , tooltip = "Recall Keybinding"});
-		Tweetiebot.Keys:MenuElement({id = "lus", name = "Level Up Key", key = string.byte("#") , tooltip = "Set it if key combination is used for leveling spells, else set it to '#'"});
 		Tweetiebot.Keys:MenuElement({id = "Q", name = "Level Up Q key", key = string.byte("Q") , tooltip = "Level Up Q Key"});
 		Tweetiebot.Keys:MenuElement({id = "W", name = "Level Up W key", key = string.byte("W") , tooltip = "Level Up W Key"});
 		Tweetiebot.Keys:MenuElement({id = "E", name = "Level Up E key", key = string.byte("E") , tooltip = "Level Up E Key"});
