@@ -3,7 +3,14 @@
 local Heroes = {"Kalista"}
 if not table.contains(Heroes, myHero.charName) then return end
 
-require "JADL"
+if FileExist(COMMON_PATH .. "JADL.lua") then
+	require 'JADL'
+	PrintChat("JADL library loaded")
+elseif FileExist(COMMON_PATH .. "DamageLib.lua") then
+	require 'DamageLib'
+	PrintChat("DamageLib library loaded")
+end
+
 require "HPred"
 
 local castSpell = {state = 0, tick = GetTickCount(), casting = GetTickCount() - 1000, mouse = mousePos}
@@ -23,14 +30,6 @@ local HKITEM = {
 	[ITEM_6] = HK_ITEM_6,
 	[ITEM_7] = HK_ITEM_7,
 }
-
-if FileExist(COMMON_PATH .. "TPred.lua") then
-	require 'TPred'
-	PrintChat("TPred library loaded")
-elseif FileExist(COMMON_PATH .. "Collision.lua") then
-	require 'Collision'
-	PrintChat("Collision library loaded")
-end
 
 function SetMovement(bool)
 	if _G.EOWLoaded then
@@ -68,7 +67,6 @@ function Kalista:LoadMenu()
 	self.Menu = MenuElement({type = MENU, id = "Kalista", name = "Tweetieshy's Kalista", leftIcon = HeroIcon})
 	self.Menu:MenuElement({id = "Combo", name = "Combo", type = MENU})
 	self.Menu.Combo:MenuElement({id = "UseQ", name = "Q", value = true})
-	self.Menu.Combo:MenuElement({id = "MinionQ", name = "Use Q Minion Combo", value = true})
 	self.Menu.Combo:MenuElement({id = "UseBotrk", name = "Use Blade of ruined King", value = true})
 	self.Menu.Combo:MenuElement({id = "comboActive", name = "Combo key", key = string.byte(" ")})
 
@@ -89,6 +87,7 @@ function Kalista:LoadMenu()
 	self.Menu.isCC:MenuElement({id = "UseQ", name = "Q", value = true})	
 	
 	self.Menu:MenuElement({id = "Misc", name = "Misc", type = MENU})
+	self.Menu.Misc:MenuElement({id = "MinionQ", name = "Use Q Minion Combo", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoE", name = "Auto E", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoJungleE", name = "Auto E on Jungle and Objectives", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoESlow", name = "Auto E for Slows (with resets)", value = true})
@@ -318,6 +317,9 @@ function Kalista:Tick()
 	
 	--p-rint(myHero.armorPenPercent .. " X " .. myHero.armorPen .. " X " .. myHero.bonusArmorPenPercent)
 		
+	if self.Menu.Misc.MinionQ:Value() then
+		self:MinionQCombo()
+	end
 	
 		self:AutoJungleE()
 		self:KillstealQ()
@@ -457,6 +459,20 @@ function Kalista:UseBotrk()
 	end
 end
 
+function Kalista:GetSkillshotTarget(minAccuracy, Spell)
+	for i  = 1,Game.HeroCount() do
+		local enemy = Game.Hero(i)		
+		if enemy and HPred:CanTarget(enemy) then	
+			local hitChance, aimPosition = HPred:GetHitchance(myHero.pos, enemy,Spell.Range, Spell.Delay, Spell.Speed, Spell.Width, Spell.Collision, nil)
+			
+			if hitChance and hitChance >= minAccuracy and HPred:IsInRange(myHero.pos, aimPosition, Spell.Range) then
+				return enemy,aimPosition
+			end
+		end
+	end
+	return nil
+end
+
 -----------------------------
 -- DRAWINGS
 -----------------------------
@@ -465,33 +481,32 @@ function Kalista:Draw()
 	if self.Menu.Drawings.Q.Enabled:Value() then Draw.Circle(myHero.pos, Q.Range, self.Menu.Drawings.Q.Width:Value(), self.Menu.Drawings.Q.Color:Value()) end
 	if self.Menu.Drawings.E.Enabled:Value() then Draw.Circle(myHero.pos, E.Range, self.Menu.Drawings.E.Width:Value(), self.Menu.Drawings.E.Color:Value()) end
 
-	
-	if self.Menu.Drawings.DrawQMinionCombo:Value() then
-		local target = CurrentTarget(Q.Range)
-		if target then
+	local target = CurrentTarget(Q.Range)
+	if self.Menu.Drawings.DrawQMinionCombo:Value() and target then
 			local ThrowOK = nil
 			local minionpos = nil
-			local castpos,HitChance, pos = TPred:GetBestCastPosition(target, Q.Delay , Q.Width, Q.Range, Q.Speed, myHero.pos, false, Q.Type )
 			
-
+			--local hitchance, pos = HPred:GetUnreliableTarget(myHero.pos, Q.Range, Q.Delay, Q.Speed, Q.Width, true, 1)
+			local pos = target.pos
+			
 			for i = 1, Game.MinionCount() do
 				local minion = Game.Minion(i)
-				local barPos = minion.hpBar
-				if minion and minion.isEnemy and not minion.dead and barPos.onScreen and minion.visible and target.visible and target.hpBar.onScreen then
-					local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(myHero.pos, castpos, minion.pos)
+				if minion and pos and minion.isEnemy and not minion.dead and minion.visible and HPred:IsInRange(myHero.pos, minion.pos, Q.Range) then 
+					local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(myHero.pos, pos, minion.pos)
 					local linePoint = Vector(pointSegment.x,minion.pos.y,pointSegment.z)
 					local w = Q.Width + minion.boundingRadius
-						
-					if isOnSegment and linePoint:DistanceTo(minion.pos) < w and castpos:DistanceTo(myHero.pos) > minion.pos:DistanceTo(myHero.pos) then
-							
-						local QDamage = (self:CanCast(_Q) and getdmg("Q",minion,myHero) or 0)
-						if HasBuff(minion, "kalistaexpungemarker") and QDamage > minion.health and HitChance > 0.30 then
+
+					if isOnSegment and linePoint:DistanceTo(minion.pos) < w and pos:DistanceTo(myHero.pos) > minion.pos:DistanceTo(myHero.pos) then			
+						local QDamage = (self:CanCast(_Q) and self:QDMG(minion) or 0)
+						if HasBuff(minion, "kalistaexpungemarker") and QDamage > minion.health then
 							if ThrowOK ~= false then 
 								minionpos = minion.pos
 								ThrowOK = true	
 							end
 						else
-							ThrowOK = false
+							if ThrowOK ~= false and QDamage <= minion.health then
+								ThrowOK = false
+							end
 						end
 					end	
 				end
@@ -499,16 +514,15 @@ function Kalista:Draw()
 			
 			if ThrowOK then
 				Draw.Circle(minionpos,50,Draw.Color(200,0,255,0))
-				Draw.Line(myHero.pos:To2D(), minionpos:To2D(),Draw.Color(200,0,255,0))
-				--self:CastSpell(HK_Q, castpos)
+				Draw.Line(myHero.pos:To2D(), myHero.pos:Extended(minionpos, Q.Range):To2D(),Draw.Color(200,0,255,0))
 			end
-		end
+
 	end
 
 	if self.Menu.Drawings.DrawDamage:Value() then
 			for i, hero in pairs(self:GetEnemyHeroes()) do
 				local barPos = hero.hpBar
-				if not hero.dead and hero.pos2D.onScreen and barPos.onScreen and hero.visible then
+				if not hero.dead and hero.pos2D.onScreen and hero.visible then
 					local EDamage = (self:CanCast(_E) and self:EDMG(hero) or 0)
 
 					if EDamage > 0 then
@@ -640,42 +654,43 @@ end
 function Kalista:MinionQCombo()
 	local target = CurrentTarget(Q.Range)
 	if target then
-		local color = Draw.Color(200,255,0,0)
-		local Collisions = 0
-		local ThrowOK = nil
-		local castpos,HitChance, pos = TPred:GetBestCastPosition(target, Q.Delay , Q.Width, Q.Range, Q.Speed, myHero.pos, false, Q.Type )
-		
-		for i = 1, Game.MinionCount() do
-			local minion = Game.Minion(i)
-			local barPos = minion.hpBar
-			if minion and minion.isEnemy and not minion.dead and barPos.onScreen and minion.visible and target.visible and target.hpBar.onScreen then
-				local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(myHero.pos, castpos, minion.pos)
-				local linePoint = Vector(pointSegment.x,minion.pos.y,pointSegment.z)
-				local w = Q.Width + minion.boundingRadius
-					
-				if isOnSegment and linePoint:DistanceTo(minion.pos) < w and castpos:DistanceTo(myHero.pos) > minion.pos:DistanceTo(myHero.pos) and castpos:DistanceTo(minion.pos) < castpos:DistanceTo(myHero.pos) then
-						
-					local QDamage = (self:CanCast(_Q) and getdmg("Q",minion,myHero) or 0)
-					if HasBuff(minion, "kalistaexpungemarker") and QDamage > minion.health and HitChance > 0.30 then
-						if ThrowOK ~= false then ThrowOK = true	end
-					else
-						ThrowOK = false
-					end
-				end	
+			local ThrowOK = nil
+			local minionpos = nil
+			
+			--local hitchance, pos = HPred:GetUnreliableTarget(myHero.pos, Q.Range, Q.Delay, Q.Speed, Q.Width, true, 1)
+			local pos = target.pos
+
+			for i = 1, Game.MinionCount() do
+				local minion = Game.Minion(i)
+				if minion and pos and minion.isEnemy and not minion.dead and minion.visible and HPred:IsInRange(myHero.pos, minion.pos, Q.Range) then 
+					local pointSegment, pointLine, isOnSegment = VectorPointProjectionOnLineSegment(myHero.pos, pos, minion.pos)
+					local linePoint = Vector(pointSegment.x,minion.pos.y,pointSegment.z)
+					local w = Q.Width + minion.boundingRadius
+
+					if isOnSegment and linePoint:DistanceTo(minion.pos) < w and pos:DistanceTo(myHero.pos) > minion.pos:DistanceTo(myHero.pos) then			
+						local QDamage = (self:CanCast(_Q) and self:QDMG(minion) or 0)
+						if HasBuff(minion, "kalistaexpungemarker") and QDamage > minion.health then
+							if ThrowOK ~= false then 
+								minionpos = minion.pos
+								ThrowOK = true	
+							end
+						else
+							if ThrowOK ~= false and QDamage <= minion.health then
+								ThrowOK = false
+							end
+						end
+					end	
+				end
 			end
-		end
-		
-		if ThrowOK then
-			self:CastSpell(HK_Q, castpos)
-		end
+			
+			if ThrowOK then
+				self:CastSpell(HK_Q, pos)
+			end
+
 	end
 end
 
 function Kalista:Combo()
-	if self.Menu.Combo.MinionQ:Value() then
-		self:MinionQCombo()
-	end
-	
 	if self.Menu.Combo.UseBotrk:Value() then
 		self:UseBotrk()
 	end
@@ -800,10 +815,10 @@ function Kalista:Lasthit()
   		for i = 1, Game.MinionCount() do
 			local minion = Game.Minion(i)
 			local Qdamage = self:QDMG(minion)
-		    local castpos,HitChance, pos = TPred:GetBestCastPosition(minion, Q.Delay , Q.Width, Q.Range, Q.Speed, myHero.pos, not Q.ignorecol, Q.Type )
+
 			if myHero.pos:DistanceTo(minion.pos) < Q.Range and self.Menu.Lasthit.UseQ:Value() and minion.isEnemy and not minion.dead then
-				if Qdamage >= self:HpPred(minion,1) and (HitChance > 0 ) then
-			    self:CastSpell(HK_Q,castpos)
+				if Qdamage >= self:HpPred(minion,1) then
+			    self:CastSpell(HK_Q,minion.pos)
 				end
 			end
 		end
@@ -842,17 +857,12 @@ end
 -----------------------------
 
 function Kalista:KillstealQ()
-	local target = CurrentTarget(Q.Range)
-	if target == nil then return end
-	if self.Menu.Killsteal.UseQ:Value() and target and self:CanCast(_Q) then
+	local target, pos = self:GetSkillshotTarget(1,Q)
+	if target and self.Menu.Killsteal.UseQ:Value() and self:CanCast(_Q) then
 		if self:EnemyInRange(Q.Range) then 
-			local level = myHero:GetSpellData(_Q).level	
-			local castpos,HitChance, pos = TPred:GetBestCastPosition(target, Q.Delay , Q.Width, Q.Range,Q.Speed, myHero.pos, not Q.ignorecol, Q.Type )
 		   	local Qdamage = self:QDMG(target)
 			if Qdamage >= self:HpPred(target,1) + target.hpRegen * 1 then
-			if (HitChance > 0 ) and self:CanCast(_Q) then
-			    Control.CastSpell(HK_Q,castpos)
-				end
+			    Control.CastSpell(HK_Q,pos)
 			end
 		end
 	end
@@ -863,20 +873,13 @@ end
 -----------------------------
 
 function Kalista:SpellonCCQ()
-    local target = CurrentTarget(Q.Range)
-	if target == nil then return end
-	if self.Menu.isCC.UseQ:Value() and target and self:CanCast(_Q) then
+	local target, pos = self:GetSkillshotTarget(3,Q)
+	if target and self.Menu.isCC.UseQ:Value() and self:CanCast(_Q) then
 		if self:EnemyInRange(Q.Range) then 
-			local ImmobileEnemy = self:IsImmobileTarget(target)
-			local level = myHero:GetSpellData(_Q).level	
-			local castpos,HitChance, pos = TPred:GetBestCastPosition(target, Q.Delay , Q.Width, Q.Range,Q.Speed, myHero.pos, not Q.ignorecol, Q.Type )
-			if ImmobileEnemy then
-			if (HitChance > 0.30 ) then
-			    Control.CastSpell(HK_Q,castpos)
-				end
-			end
+			Control.CastSpell(HK_Q,pos)
 		end
 	end
+	
 end
 
 
