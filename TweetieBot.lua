@@ -1,4 +1,8 @@
-require 'Eternal Prediction'
+if FileExist(COMMON_PATH .. "HPred.lua") then
+	require 'HPred'
+	PrintChat("HPred library for Tweetiebot loaded")
+end
+
 
 -- tWEETIEbOT bY tWEETIESHY FOR gOs eXTERNAL
 -- sPECIAL THANKS TO RMAN,wEEDLE AND sHULEPIN FOR HELPING ME WITH DEBUGGING; 
@@ -59,6 +63,11 @@ local TowerProtectionZone = 700
 local HitChanceModifier = 0.25
 local TowerSafeZone = 350
 local LowHealthPerLevelThreshold = 20
+local FleeDistanceMulti = 2 -- Used for FleeModeMulti = 1 its a MULTIPLIER of OWN AA Range
+local FleeDistancePlain = 600 -- Used for FleeModeMulti = 2 Fixed Range (for example 650 for caitlyn AA range, roughly)
+local FleeModeMulti = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee regarding on Fixed safety range
+local FleeDistanceSingle = 0.8
+local FleeModeSingle = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee Regarding Enemy AA Range 
 
 --- Buy Items Config
 local ItemsADC = {} --- Item search, ID, (Upgrade) Costs, Final Item
@@ -76,7 +85,7 @@ ItemsADC[#ItemsADC+1] = {"pick",1037,875,13}	--- Pickaxe
 ItemsADC[#ItemsADC+1] = {"agilit",1018,800,13}	--- Cloak of Agility
 ItemsADC[#ItemsADC+1] = {"infin",3031,425,nil} 	--- Infinity Edge
 ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,15}--- Last Whisper
-ItemsADC[#ItemsADC+1] = {"sla",3034,10,15}		--- Giant Slayer
+ItemsADC[#ItemsADC+1] = {"sla",3034,1000,15}	--- Giant Slayer
 ItemsADC[#ItemsADC+1] = {"domini",3036,300,nil} --- Dominiks Regards
 ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,17}	--- B.F Sword
 ItemsADC[#ItemsADC+1] = {"angel",3026,1100,nil}	--- Guardian Angel
@@ -174,6 +183,9 @@ function Enter()
     Control.KeyUp(13)    
 end
 
+function BreakChannel()
+	Control.Move(myHero.pos  + Vector(0,50,0))
+end
 
 --- Init ---
 function __init()
@@ -277,20 +289,28 @@ function Tick()
 		return
 	end
 	
-	--if true then
-	--	return
-	--end
+	if true then
+		--return
+	end
 	
 	Decisionmaker(send)
 end
 
 function Decisionmaker(send)
 	local target = GetTarget(myHero.range*1.3)
-	local getEnemys = GetHeroCount(myHero.pos, myHero.range*2, false)
 	
+	local getEnemys = 0
 	local getAllies = 0
-	if (target) then
-		getAllies = GetHeroCount(myHero.pos, myHero.range*1.5, true)
+	if FleeModeMulti ~= 0 then
+		if FleeModeMulti == 1 then
+			getEnemys = GetHeroCount(myHero.pos, myHero.range*FleeDistanceMulti, false)
+			getAllies = GetHeroCount(myHero.pos, myHero.range*FleeDistanceMulti, true)
+		else
+			getEnemys = GetHeroCount(myHero.pos, FleeDistancePlain, false)
+			getAllies = GetHeroCount(myHero.pos, FleeDistancePlain, true)
+		end
+	else
+		getAllies = GetHeroCount(myHero.pos, FleeDistancePlain, true)
 	end
 	
 	local killtarget = GetTarget(myHero.range*2)
@@ -298,22 +318,24 @@ function Decisionmaker(send)
 	local attackedbyminions = GetAttackedbyMinions(myHero.range*2)
 	local ActiveEnemyTower = GetLaneTower(lane, true, true)
 	
-	--if myHero.dead or CurText then
-	--	if Tweetiebot.Talk:Value() and attackedbyminions == 0 and not target and not enemytower then
-	--		if BotOrb.Menu.Enabled:Value() then
-	--			BotOrb.Menu.Enabled:Value(false)
-	--		end
-	--		ClearDraw()
-	--		Talk(send)
-	--	end
-	--	return
-	--end
-	
+	--[[
+	if myHero.dead or CurText then
+		if Tweetiebot.Talk:Value() and attackedbyminions == 0 and not target and not enemytower then
+			if BotOrb.Menu.Enabled:Value() then
+				BotOrb.Menu.Enabled:Value(false)
+			end
+			ClearDraw()
+			Talk(send)
+		end
+		return
+	end
+	]]
+
 	if not BotOrb.Menu.Enabled:Value() then
 		BotOrb.Menu.Enabled:Value(true)
 		BotOrb:Orbwalk()
 	end
-	
+					
 	if (myHero.health < myHero.maxHealth*0.8 or myHero.mana < myHero.maxMana*0.8) and IsInBuyDistance() then
 		drawables[2] = {"Wait and Heal Up ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		ResetModes(nil)
@@ -323,16 +345,16 @@ function Decisionmaker(send)
 	elseif getEnemys > getAllies then
 		drawables[2] = {"Flee from Enemies ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif not enemytower and killtarget and killtarget.health < killtarget.maxHealth*0.35 and killtarget.health+myHero.maxHealth*0.25 < myHero.health then
+	elseif not enemytower and killtarget and (killtarget.health < killtarget.maxHealth*0.3 or killtarget.health+myHero.maxHealth*0.25 < myHero.health or getEnemys < getAllies) then
 		drawables[2] = {"Kill Attempt on " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Combo(killtarget,true)
 	elseif myHero.health < myHero.maxHealth*0.35 and not IsInBuyDistance() then
 		drawables[2] = {"Flee and Recall ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}	
 		Recall(send, true)
-	elseif attackedbyminions > 2 and (not target or target and not IsAARange(target))then
+	elseif attackedbyminions > 2 and (not target or target and not IsAARange(target)) or attackedbyminions > 5 and myHero.health < myHero.maxHealth*0.7  then
 		drawables[2] = {"Flee from Minions" .. attackedbyminions .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif target and IsAARangeMult(target, 0.8) and target.health > myHero.health then
+	elseif target and FleeModeSingle ~= 0 and (FleeModeSingle == 1 and IsAARangeMult(target, FleeDistanceSingle) or FleeModeSingle == 2 and IsAARangeMultEnemy(target, FleeDistanceSingle)) and target.health > myHero.health then
 		drawables[2] = {"Flee from " .. target.name .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,true)
 	elseif CanAffordNextMajorItem() and not IsInBuyDistance() then
@@ -377,7 +399,7 @@ function Walk(send)
 		local NextTower = WaypointToTower(NextWayPoint)
 		local OwnMinion = GoToMinions(send,true)
 		
-		if NextWayPoint[1] == AllySide or NextWayPoint[1] == EnemySide and MinionsInRangeAbs(TowerToVector(NextTower), myHero.team, TowerProtectionZone) > 0 or not IsActiveWaypoint(NextWayPoint) then
+		if NextWayPoint[1] == AllySide or NextWayPoint[1] == EnemySide and MinionsInRangeAbs(TowerToVector(NextTower), myHero.team, TowerProtectionZone) > 0 or IsActiveWaypoint(NextWayPoint) == false then
 			target = GoToTower(NextWayPoint,false,send)
 			drawables[3] = {"Go to next Waypoint", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 60, Draw.Color(255, 255, 0, 0)}
 		elseif OwnMinion then
@@ -468,7 +490,7 @@ function Clear(send)
 				ResetModes(Mode_Clear)
 			end
 		else
-			print ("WHAT")
+			--p-rint ("WHAT")
 			DestroyTower() -- should be actually never the case, was there for debug reasons, just to make sure he always does something...
 		end
 	end
@@ -532,27 +554,27 @@ function Recall(send, emergency)
 end
 
 function DestroyTower(send)
-	if ActiveMode() ~= Mode_Lasthit then
+	if ActiveMode() ~= Mode_Clear then
 		Stop()
 		PressKey(HK_TCO,false)
 	end
 	
-	ResetModes(Mode_Lasthit)
+	ResetModes(Mode_Clear)
 	
 	drawables[3] = nil
 	drawables[4] = nil
 	drawables[5] = nil	
 	
-	drawables[4] = {"Destroy Tower ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 90, Draw.Color(255, 0, 255, 0)}
 	--p-rint(tostring(GetAARangeTo(nil)))
 	local ActiveEnemyTower = GetLaneTower(lane, true, true)
 	if ActiveEnemyTower and send then
-		if ActiveEnemyTower:DistanceTo(myHero.pos) > GetAARangeTo(nil)*0.9 then
-			local extendedPos = ActiveEnemyTower:Extended(myHero.pos, GetAARangeTo(nil))
+		if ActiveEnemyTower:DistanceTo(myHero.pos) > GetAARangeTo(nil) then
+			local extendedPos = ActiveEnemyTower:Extended(myHero.pos, GetAARangeTo(nil)*0.9)
 			Control.SetCursorPos(t(extendedPos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(extendedPos,MoveRange), extendedPos))
+			drawables[4] = {"Go to destroy Tower ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 90, Draw.Color(255, 0, 255, 0)}
 		else
-			ResetModes(nil)
-			Control.Attack(ActiveEnemyTower)
+			Control.SetCursorPos(myHero.pos)
+			drawables[4] = {"Destroy Tower ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 90, Draw.Color(255, 0, 255, 0)}
 		end
 	end
 end
@@ -587,18 +609,19 @@ function UseSpells(send)
 	local SpellW = myHero:GetSpellData(_W)
 	local SpellE = myHero:GetSpellData(_E)
 	local SpellR = myHero:GetSpellData(_R)
-
+	
 	local range = t(SpellQ.range < MaxSpellRange, SpellQ.range , 0)
 	range = t(SpellQ.range == 0, GetAARangeTo(nil) , range) --and SpellQ.range < MaxSpellRange
 	local target = GetNearestEnemy(myHero.pos,range,true)	
-	if send and Ready(_Q) and target then	
-		if SpellQ.range == 0 then -- no range
+	--p-rint("Q Range " .. range .. " " .. tostring(target) .. " " .. SpellQ.cd)
+	if send and Ready(_Q) and target and SpellQ.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...
+		--p-rint("cast Q attempt " .. range)
+		if SpellQ.range == 0 or SpellQ.width == 0 then -- no range
 			Control.CastSpell(HK_Q)	
 			CastStart = true
 		else
-			local pred = GetPrediction(target,{SpellQ.speed, SpellQ.delay,range})
-			local CastPos = t(SpellQ.width, target.pos, pred.castPos)
-			if DoesSpellHit(pred) or SpellQ.width == 0 then
+			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellQ.speed, SpellQ.width, true, 1)
+			if CastPos then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_Q, CastPos)
@@ -612,15 +635,16 @@ function UseSpells(send)
 	
 	range = t(SpellW.range < MaxSpellRange, SpellW.range , 0)
 	range = t(SpellW.range == 0, GetAARangeTo(nil) , range) --and SpellW.range < MaxSpellRange
-	local target = GetNearestEnemy(myHero.pos,range,true)	
-	if send and Ready(_W) and target then	
-		if SpellW.range == 0 then -- no range
+	target = GetNearestEnemy(myHero.pos,range,true)	
+	--print("W Range " .. range .. " " .. tostring(target) .. " " .. SpellW.cd)
+	if send and Ready(_W) and target and SpellW.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...	
+		--print("cast W attempt " .. range)
+		if SpellW.range == 0 or SpellW.width == 0 then -- no range
 			Control.CastSpell(HK_W)	
 			CastStart = true
 		else
-			local pred = GetPrediction(target,{SpellW.speed, SpellW.delay,range})
-			local CastPos = t(SpellW.width, target.pos, pred.castPos)
-			if DoesSpellHit(pred) or SpellW.width == 0 then
+			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellW.speed, SpellW.width, true, 1)
+			if CastPos then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_W, CastPos)
@@ -633,15 +657,16 @@ function UseSpells(send)
 	
 	range = t(SpellE.range < MaxSpellRange, SpellE.range, 0)
 	range = t(SpellE.range == 0, GetAARangeTo(nil) , range) --and SpellE.range < MaxSpellRange
-	local target = GetNearestEnemy(myHero.pos,range,true)	
-	if send and Ready(_E) and target then	
-		if SpellE.range == 0 then -- no range
+	target = GetNearestEnemy(myHero.pos,range,true)	
+	--print("E Range " .. range .. " " .. tostring(target) .. " " .. SpellE.cd)	
+	if send and Ready(_E) and target and SpellE.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...	
+		--p-rint("cast E attempt " .. range)
+		if SpellE.range == 0 or SpellE.width == 0 then -- no range
 			Control.CastSpell(HK_E)	
 			CastStart = true
 		else
-			local pred = GetPrediction(target,{SpellE.speed, SpellE.delay,range})
-			local CastPos = t(SpellE.width, target.pos, pred.castPos)
-			if DoesSpellHit(pred) or SpellE.width == 0 then
+			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellE.speed, SpellE.width, true, 1)
+			if CastPos then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_E, CastPos)
@@ -655,16 +680,19 @@ function UseSpells(send)
 	
 	range = t(SpellR.range < MaxSpellRange, SpellR.range , MaxSpellRange)
 	local target = GetLowEnemy(myHero.pos,range,true)
-	if send and Ready(_R) and target and (target.health < target.levelData.lvl*LowHealthPerLevelThreshold or target.health/target.maxHealth < 0.3) then	
+	if send and Ready(_R) and target and (target.health < target.levelData.lvl*LowHealthPerLevelThreshold or target.health/target.maxHealth < 0.25) then	
 		if SpellR.range == 0 then -- no range
 			Control.CastSpell(HK_R)	
 			CastStart = true
-		else			
-			Orb(false)
-			Control.SetCursorPos(target.pos)
-			Control.CastSpell(HK_R, target.pos)
-			GlobalTarget = target
-			CastStart = true
+		else
+			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellR.speed, SpellR.width, false, 1)
+			if CastPos then
+				Orb(false)
+				Control.SetCursorPos(CastPos)
+				Control.CastSpell(HK_R, CastPos)
+				GlobalTarget = target
+				CastStart = true
+			end
 		end
 		--p-rint(target.name .. " R " .. target.pos:DistanceTo(myHero.pos) .. " " .. range)
 	end
@@ -696,12 +724,13 @@ function Buy()
 		else
 			buystate = 0
 			currenthave = currenthave+1
-			for k,v in pairs(Items) do 	
-				if k > currenthave and myHero.gold > v[3] then
+			for k=1, #Items do
+				if k > currenthave and myHero.gold > Items[k][3] then
 					buystate = 2
 					break;
 				end
-			end	
+			end
+			
 		end
 		
 		if buystate ~= 2 and buystate ~= 6 then
@@ -736,10 +765,10 @@ function Buy()
 	end
 	
 	if buystate == 0 then
-		for k,v in pairs(Items) do 	
+		for k=1, #Items do
 			if k > currenthave then
-				if myHero.gold >= v[3] then
-					print("buy item " .. v[1])
+				if myHero.gold >= Items[k][3] then
+					print("buy item " .. Items[k][1])
 					buystate = 1
 				else
 					--p-rint("cant buy item!? "  .. v[1])
@@ -747,7 +776,8 @@ function Buy()
 				end
 				break
 			end
-		end	
+		end
+		
 	end
 end
 
@@ -888,21 +918,20 @@ function GetLaneTower(lane, enemy, alive)
 
 	local Towers = Towers[t(enemy, EnemySide, AllySide)][lane]
 	local foundTower = nil
-	
-	for b,n in pairs(Towers) do
+
+	for k,x in pairs(Towers) do
 		local FoundTowerDistance = 0
 		if foundTower then FoundTowerDistance = WaypointToVector(foundTower):DistanceTo(myHero.pos) else FoundTowerDistance = 0 end
-		local CurrentTowerDistance = WaypointToVector({t(enemy, EnemySide, AllySide),lane,b}):DistanceTo(myHero.pos)
-		if alive and n[3] or not alive and not n[3] or alive == nil then
+		local CurrentTowerDistance = WaypointToVector({t(enemy, EnemySide, AllySide),lane,k}):DistanceTo(myHero.pos)
+		if alive and Towers[k][3] or not alive and not Towers[k][3] or alive == nil then
 			if not foundTower or CurrentTowerDistance < FoundTowerDistance and CurrentTowerDistance > 300 then
-				if not enemy or enemy then --and GetMinionInRange(WaypointToVector({EnemySide,lane,b}),20) then
-					if not foundTower or b < foundTower[3] then 
-						foundTower = {t(enemy, EnemySide, AllySide),lane,b}		
+				if not enemy or enemy then --and GetMinionInRange(WaypointToVector({EnemySide,lane,k}),20) then
+					if not foundTower or k < foundTower[3] then 
+						foundTower = {t(enemy, EnemySide, AllySide),lane,k}		
 					end
 				end
 			end
 		end
-
 	end
 	
 	if foundTower then return WaypointToVector(foundTower) end
@@ -913,19 +942,18 @@ function GetNextTowerTowardsBase(lane, active)
 	local Towers = Towers[AllySide][lane]
 	local foundTower = nil
 	
-	for b,n in pairs(Towers) do
-		local CurrentTower = {t(enemy, EnemySide, AllySide),lane,b}
+	for k,x in pairs(Towers) do
+		local CurrentTower = {t(enemy, EnemySide, AllySide),lane,k}
 		local FoundTowerDistance = 0
 		if foundTower then FoundTowerDistance = WaypointToVector(foundTower):DistanceTo(StartPoint) else FoundTowerDistance = 0 end
 		local CurrentTowerDistance = WaypointToVector(CurrentTower):DistanceTo(StartPoint)
-		if alive and n[3] or not alive and not n[3] or alive == nil then
+		if alive and Towers[k][3] or not alive and not Towers[k][3] or alive == nil then
 			if CurrentTowerDistance > FoundTowerDistance and StartPoint:DistanceTo(myHero.pos) > CurrentTowerDistance then
-				if not foundTower or b < foundTower[3] then 
+				if not foundTower or k < foundTower[3] then 
 					foundTower = CurrentTower	
 				end
 			end
 		end
-
 	end
 	
 	if foundTower then return WaypointToVector(foundTower) end
@@ -934,10 +962,13 @@ end
 
 function GetNextWaypoint(pos,flee)
 	local foundTower = nil
+	
+
+	
 	for b,n in pairs(Towers) do
-		for h,j in pairs(n[lane]) do
-			if h ~= 4 and h ~= 5 then
-				local CurrentTower = {b,lane,h}	
+		for j=1,#n[lane] do
+			if j ~= 4 and j ~= 5 then
+				local CurrentTower = {b,lane,j}	
 				local CurrentTowerVector = WaypointToVector(CurrentTower)
 
 				if 	b == EnemySide and flee then											
@@ -972,9 +1003,9 @@ function GetNextWaypoint(pos,flee)
 					end
 				end	
 			end
-		end
+		end	
 	end
-		
+			
 	if pos == WaypointToVector(foundTower) then
 		foundTower = nil
 	end
@@ -1059,20 +1090,21 @@ function GetLowMinionInRange(pos,mult)
 end
 
 function CheckTowers()
-	for k1,v1 in pairs(Towers) do
-		for b = 1, #Towers[k1] do
-			for n=1, #Towers[k1][b] do
-				Towers[k1][b][n][3] = nil
+
+	for k,x in pairs(Towers) do
+		for b = 1, #Towers[k] do
+			for n=1, #Towers[k][b] do
+				Towers[k][b][n][3] = nil
 			
 				for i = 1, Game.TurretCount() do
 					local Tower = Game.Turret(i)
-					if Tower.pos:DistanceTo(Vector(Towers[k1][b][n][1],0,Towers[k1][b][n][2])) < 600 then
-						Towers[k1][b][n][3] = Tower
+					if Tower.pos:DistanceTo(Vector(Towers[k][b][n][1],0,Towers[k][b][n][2])) < 600 then
+						Towers[k][b][n][3] = Tower
 					end
 				end
-				local Towerpos = Vector(Towers[k1][b][n][1],0, Towers[k1][b][n][2]) 
+				--local Towerpos = Vector(Towers[k][b][n][1],0, Towers[k][b][n][2]) 
 				--Draw.Line(myHero.pos:To2D(),Towerpos:To2D(), Draw.Color(255, 255, 0, 0))
-				--Draw.Text(tostring(Towers[k1][b][n][3] ~= nil).. " " .. k1 .. " " .. b .. " " .. n, 20, Towerpos:To2D().x, Towerpos:To2D().y, Draw.Color(255, 0, 255, 0))
+				--Draw.Text(tostring(Towers[k][b][n][3] ~= nil).. " " .. k .. " " .. b .. " " .. n, 20, Towerpos:To2D().x, Towerpos:To2D().y, Draw.Color(255, 0, 255, 0))
 			end		
 		end
 	end	
@@ -1104,7 +1136,7 @@ function GetHeroCount(pos,range,allied)
 	local near = 0
 	for i = 1, Game.HeroCount() do
 		local Hero = Game.Hero(i)
-		if not (Hero.dead == false) and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
+		if Hero.dead ~= true and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
 			near = near + 1
 		end
 	end
@@ -1234,20 +1266,15 @@ function ResetModes(Exception)
 	ChangeMode(Mode_Lasthit,t(Exception==Mode_Lasthit, true, false))
 end
 
-
-function ClearDraw()
-	for k,v in pairs(drawables) do 	
-		drawables[k] = nil
-	end	
-end
-
 function GDraw()
 	if not Tweetiebot.Enable:Value() then
 		ClearDraw()
 		return
 	end
 	
-	for k,v in pairs(drawables) do 	
+	
+	for k=1, #drawables do
+		local v = drawables[k]
 		if v then
 			if type(v[1]) == "string" and type(v[2]) == "number" then
 				Draw.Text(v[1],v[2],v[3],v[4],v[5])
@@ -1266,13 +1293,14 @@ function GDraw()
 			end
 		end
 		-- userdata
-	end	
+	end
+		
 end
 
 function ClearDraw()
-	for k,v in pairs(drawables) do 	
+	for k=1, #drawables do
 		drawables[k] = nil
-	end	
+	end
 end
 
 function Chat(value)
@@ -1283,6 +1311,13 @@ function Chat(value)
 end
 
 
+
+function GetEnemyAARangeTo(target)
+	if target == nil then
+		return nil
+	end
+	return target.range + target.boundingRadius * 0.5 + (myHero.boundingRadius ~= nil and (myHero.boundingRadius - 30) or 35)
+end
 
 function GetAARangeTo(target)
 	return myHero.range + myHero.boundingRadius * 0.5 + (target ~=nil and target.boundingRadius ~= nil and (target.boundingRadius - 30) or 35)
@@ -1299,6 +1334,8 @@ function IsUnderTower(object,allied)
 end
 
 function GetPrediction(target,Spelldata)
+	local hitchance, pos  = HPred:GetUnreliableTarget(source, range, delay, speed, radius, checkCollision, minimumHitChance, whitelist, isLine)
+	
 	local spell = Prediction:SetSpell(Spelldata, TYPE_LINEAR, true)
 	return spell:GetPrediction(target,myHero.pos) 
 end
@@ -1332,7 +1369,11 @@ function CheckBuy(send)
 	if send and buystate ~= 6 then	
 		ClearDraw()
 		drawables[2] = {"Buying " ,20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
-		Buy()
+		if IsInBuyDistance() and myHero.isChanneling then
+			BreakChannel()
+		else
+			Buy()
+		end
 	end
 end
 
@@ -1342,6 +1383,13 @@ function GetTarget(range)
 		return target
 	end
 	return nil
+end
+
+function IsAARangeMultEnemy(target, mult)
+	if not target or target and myHero.pos:DistanceTo(target.pos) > GetEnemyAARangeTo(target) * mult then
+		return false
+	end
+	return true
 end
 
 function IsAARangeMult(target, mult)
@@ -1372,26 +1420,29 @@ function LevelSpell(Spell)
 end
 
 function CanAffordNextItem()
-	for k,v in pairs(Items) do 	
+
+	for k=1, #Items do
 		if k > currenthave then
-			if myHero.gold >= v[3] then
+			if myHero.gold >= Items[k][3] then
 				return true
 			else
 				return false
 			end
 			break
 		end
-	end	
+	end
+
 end
 
 function CanAffordNextMajorItem()
 	local goldsum = 0
-	for k,v in pairs(Items) do 	
+	
+	for k=1, #Items do
 		if k > currenthave then
-			if v[4] ~= nil then
-				goldsum = goldsum + v[3]
+			if Items[k][4] ~= nil then
+				goldsum = goldsum + Items[k][3]
 			else
-				goldsum = goldsum + v[3]
+				goldsum = goldsum + Items[k][3]
 				if myHero.gold >= goldsum then
 					return true
 				else
@@ -1400,33 +1451,37 @@ function CanAffordNextMajorItem()
 				break
 			end
 		end
-	end	
+	end
+		
 end
 
 function CheckItems()
 	local Itemslots = { myHero:GetItemData(ITEM_1), myHero:GetItemData(ITEM_2), myHero:GetItemData(ITEM_3), myHero:GetItemData(ITEM_4), myHero:GetItemData(ITEM_5), myHero:GetItemData(ITEM_6), myHero:GetItemData(ITEM_7) }
 	local End = false
-	for k,v in pairs(Items) do 	
-		if HasItem(v,Itemslots) then
+	
+	for k=1, #Items do
+		if HasItem(Items[k],Itemslots) then
 			currenthave = k
-			--p-rint(v[1])
+			--p-rint(Items[k][1])
 		elseif not End then
-			if v[4] and not HasItem(Items[v[4]],Itemslots) then
-				--p-rint("does not have " .. v[1] .. " " .. v[4])
+			if Items[k][4] and not HasItem(Items[Items[k][4]],Itemslots) then
+				--p-rint("does not have " .. Items[k][1] .. " " .. Items[k][4])
 				End = true
 			end
 		elseif End then
 			return
 		end
-	end	
+	end
+	
 end
 
-function HasItem(item, items)
-	for b,n in pairs(items) do 	
-		if n and n.itemID == item[2] then
+function HasItem(item, Items)
+	for k=1, #Items do
+		if Items[k] and Items[k].itemID == item[2] then
 			return true
 		end
 	end
+	 
 	return false
 end
 
@@ -1437,7 +1492,10 @@ end
 
 
 Callback.Add("Load", function()
-	if not _G.Prediction_Loaded then return end
+	if not FileExist(COMMON_PATH .. "HPred.lua") then 
+		PrintChat("Required Libs (HPRED) not Found, exiting Tweetiebot")
+		return 
+	end
 	__init()
 	print("Tweetieshy Bot "..ScriptVersion.." Loaded")
 end)
