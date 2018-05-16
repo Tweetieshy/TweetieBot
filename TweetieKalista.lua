@@ -73,7 +73,6 @@ function Kalista:LoadMenu()
 	self.Menu:MenuElement({id = "Clear", name = "Clear", type = MENU})
 	self.Menu.Clear:MenuElement({id = "UseQ", name = "Q", value = true})
 	self.Menu.Clear:MenuElement({id = "ECount", name = "Use E on X minions", value = 3, min = 1, max = 7, step = 1})
-	self.Menu.Clear:MenuElement({id = "MinionQ", name = "Use Q Minion Combo", value = true})
 	self.Menu.Clear:MenuElement({id = "clearActive", name = "Clear key", key = string.byte("C")})
 	
 	self.Menu:MenuElement({id = "Lasthit", name = "Lasthit", type = MENU})
@@ -87,7 +86,7 @@ function Kalista:LoadMenu()
 	self.Menu.isCC:MenuElement({id = "UseQ", name = "Q", value = true})	
 	
 	self.Menu:MenuElement({id = "Misc", name = "Misc", type = MENU})
-	self.Menu.Misc:MenuElement({id = "MinionQ", name = "Use Q Minion Combo", value = true})
+	self.Menu.Misc:MenuElement({id = "MinionQ", name = "Use Q Minion Combo (Unstable)", value = false})
 	self.Menu.Misc:MenuElement({id = "AutoE", name = "Auto E", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoJungleE", name = "Auto E on Jungle and Objectives", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoESlow", name = "Auto E for Slows (with resets)", value = true})
@@ -114,7 +113,7 @@ function Kalista:LoadMenu()
     self.Menu.Drawings.WJ:MenuElement({id = "Width", name = "Width", value = 1, min = 1, max = 5, step = 1})
     self.Menu.Drawings.WJ:MenuElement({id = "Color", name = "Color", color = Draw.Color(200, 255, 255, 255)})
 	
-	self.Menu.Drawings:MenuElement({id = "DrawQMinionCombo", name = "Draw Q Combo on Minion", value = true})
+	self.Menu.Drawings:MenuElement({id = "DrawQMinionCombo", name = "Draw Q Combo on Minion (Unstable)", value = false})
 	self.Menu.Drawings:MenuElement({id = "DrawDamage", name = "Draw damage on Champ", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawDamageMinion", name = "Draw damage on Minions", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawPreciseDamage", name = "Draw precise damage numbers", value = true})
@@ -516,9 +515,8 @@ function Kalista:Draw()
 				Draw.Circle(minionpos,50,Draw.Color(200,0,255,0))
 				Draw.Line(myHero.pos:To2D(), myHero.pos:Extended(minionpos, Q.Range):To2D(),Draw.Color(200,0,255,0))
 			end
-
 	end
-
+	
 	if self.Menu.Drawings.DrawDamage:Value() then
 			for i, hero in pairs(self:GetEnemyHeroes()) do
 				local barPos = hero.hpBar
@@ -686,7 +684,6 @@ function Kalista:MinionQCombo()
 			if ThrowOK then
 				self:CastSpell(HK_Q, pos)
 			end
-
 	end
 end
 
@@ -765,10 +762,6 @@ end
 -----------------------------
 
 function Kalista:Clear()
-	if self.Menu.Clear.MinionQ:Value() then
-		self:MinionQCombo()
-	end
-
 	if self.Menu.Clear.UseQ:Value() and self:CanCast(_Q) then
 		for i = 1, Game.MinionCount() do
 			local minion = Game.Minion(i)
