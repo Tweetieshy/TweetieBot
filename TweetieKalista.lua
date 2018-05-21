@@ -89,6 +89,7 @@ function Kalista:LoadMenu()
 	self.Menu.Misc:MenuElement({id = "MinionQ", name = "Use Q Minion Combo (Unstable)", value = false})
 	self.Menu.Misc:MenuElement({id = "AutoE", name = "Auto E", value = true})
 	self.Menu.Misc:MenuElement({id = "AutoJungleE", name = "Auto E on Jungle and Objectives", value = true})
+	self.Menu.Misc:MenuElement({id = "NoEarlyJungleE", name = "Prevent Auto E on Jungle the first X seconds of Game", value = 180, min = 0, max = 300, step = 1})
 	self.Menu.Misc:MenuElement({id = "AutoESlow", name = "Auto E for Slows (with resets)", value = true})
 	self.Menu.Misc:MenuElement({id = "PrecisionRune", name = "Precision Combat Rune", drop = {"None", "Coup de Grace", "Cut Down", "Last Stand"}})
 	self.Menu.Misc:MenuElement({id = "DragonsSlain", name = "Dragons Slain", value = 0, min = 0, max = 7, step = 1})
@@ -114,6 +115,7 @@ function Kalista:LoadMenu()
     self.Menu.Drawings.WJ:MenuElement({id = "Color", name = "Color", color = Draw.Color(200, 255, 255, 255)})
 	
 	self.Menu.Drawings:MenuElement({id = "DrawQMinionCombo", name = "Draw Q Combo on Minion (Unstable)", value = false})
+	self.Menu.Drawings:MenuElement({id = "DrawQMinionComboHelper", name = "Draw Q Combo Helper ", value = false})
 	self.Menu.Drawings:MenuElement({id = "DrawDamage", name = "Draw damage on Champ", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawDamageMinion", name = "Draw damage on Minions", value = true})
 	self.Menu.Drawings:MenuElement({id = "DrawPreciseDamage", name = "Draw precise damage numbers", value = true})
@@ -321,8 +323,7 @@ function Kalista:Tick()
 	end
 	
 		self:AutoJungleE()
-		self:KillstealQ()
-		self:AutoE()
+		self:Killsteal()
 		self:ESlow()
 		self:SpellonCCQ()
 end
@@ -516,6 +517,20 @@ function Kalista:Draw()
 				Draw.Line(myHero.pos:To2D(), myHero.pos:Extended(minionpos, Q.Range):To2D(),Draw.Color(200,0,255,0))
 			end
 	end
+
+	if self.Menu.Drawings.DrawQMinionComboHelper:Value() and target then
+		for i = 1, Game.MinionCount() do
+			local minion = Game.Minion(i)
+			if minion and minion.isEnemy and not minion.dead and minion.visible and HPred:IsInRange(myHero.pos, minion.pos, Q.Range) then 
+				local QDamage = (self:CanCast(_Q) and self:QDMG(minion) or 0)
+				if HasBuff(minion, "kalistaexpungemarker") and QDamage > minion.health then
+					Draw.Circle(minion.pos,50,Draw.Color(200,0,255,0))
+					Draw.Line(myHero.pos:To2D(), myHero.pos:Extended(minion.pos, Q.Range):To2D(),Draw.Color(200,0,255,0))
+				end
+			end
+		end		
+	end
+
 	
 	if self.Menu.Drawings.DrawDamage:Value() then
 			for i, hero in pairs(self:GetEnemyHeroes()) do
@@ -602,9 +617,9 @@ end
 
 function Kalista:HpPred(unit, delay)
 	if _G.GOS then
-	hp =  GOS:HP_Pred(unit,delay)
+	hp =  GOS:HP_Pred(unit,delay) + unit.hpRegen * 1
 	else
-	hp = unit.health
+	hp = unit.health + unit.hpRegen * 1
 	end
 	return hp
 end
@@ -693,29 +708,40 @@ function Kalista:Combo()
 	end
 end
 
-function Kalista:AutoE()
-	if not self.Menu.Misc.AutoE:Value() then
-		return
-	end
+function Kalista:Killsteal()
 
-	for i = 1, Game.HeroCount() do
-		local t = Game.Hero(i)
-		if t.isEnemy and isValidTarget(t,E.Range) and self:EDMG(t) >= t.health then
-			Control.CastSpell(HK_E)
+	if self.Menu.Misc.AutoE:Value() then
+		for i = 1, Game.HeroCount() do
+			local t = Game.Hero(i)
+			
+			if t.isEnemy and isValidTarget(t,E.Range) and self:EDMG(t) >= t.health then
+				Control.CastSpell(HK_E)
+			end
+			
+		end
+
+		if myHero.health < myHero.maxHealth*0.6 then
+			HPred:CalculateIncomingDamage()
+			if HPred:GetIncomingDamage(myHero) > myHero.health then
+				Control.CastSpell(HK_E)
+			end
+		end
+
+	end
+	
+	local target, pos = self:GetSkillshotTarget(1,Q)
+	if target and self.Menu.Killsteal.UseQ:Value() and self:CanCast(_Q) then
+		if self:EnemyInRange(Q.Range) then 
+		   	local Qdamage = self:QDMG(target)
+			if Qdamage >= self:HpPred(target,1) or self.Menu.Misc.AutoE:Value() and Qdamage + self:EDMG(target) >= self:HpPred(target,1) then
+			    Control.CastSpell(HK_Q,pos)
+			end
 		end
 	end
-
-	if myHero.health < myHero.maxHealth*0.4 then
-		HPred:CalculateIncomingDamage()
-		if HPred:GetIncomingDamage(myHero) > myHero.health then
-			Control.CastSpell(HK_E)
-		end
-	end
-
 end
 
 function Kalista:AutoJungleE()
-	if not self.Menu.Misc.AutoJungleE:Value() then
+	if not self.Menu.Misc.AutoJungleE:Value() or Game.Timer() < self.Menu.Misc.NoEarlyJungleE:Value() then
 		return
 	end
 
@@ -770,7 +796,7 @@ function Kalista:Clear()
 					if self.Menu.Clear.UseQ:Value() and minion then
 						if ValidTarget(minion, Q.Range) and myHero.pos:DistanceTo(minion.pos) < Q.Range and not minion.dead then
 							local Qdamage = self:QDMG(minion)
-							if Qdamage >= self:HpPred(minion,1) + minion.hpRegen * 1 then
+							if Qdamage >= self:HpPred(minion,1) then
 								if minion:GetCollision(40, Q.Range, 0.10) - 1 >= 2 then
 									self:CastSpell(HK_Q, minion)
 								end
@@ -843,22 +869,6 @@ end
 function isValidTarget(obj,range)
 	range = range and range or math.huge
 	return obj ~= nil and obj.valid and obj.visible and not obj.dead and obj.isTargetable and obj.pos:DistanceTo(myHero.pos) <= range
-end
-
------------------------------
--- Q KS
------------------------------
-
-function Kalista:KillstealQ()
-	local target, pos = self:GetSkillshotTarget(1,Q)
-	if target and self.Menu.Killsteal.UseQ:Value() and self:CanCast(_Q) then
-		if self:EnemyInRange(Q.Range) then 
-		   	local Qdamage = self:QDMG(target)
-			if Qdamage >= self:HpPred(target,1) + target.hpRegen * 1 then
-			    Control.CastSpell(HK_Q,pos)
-			end
-		end
-	end
 end
 
 -----------------------------
