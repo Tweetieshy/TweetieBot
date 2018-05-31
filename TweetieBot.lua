@@ -1,5 +1,6 @@
 require 'Eternal Prediction'
 
+
 -- tWEETIEbOT bY tWEETIESHY FOR gOs eXTERNAL
 -- sPECIAL THANKS TO RMAN,wEEDLE AND sHULEPIN FOR HELPING ME WITH DEBUGGING; 
 -- TEACHING ME LUA A BIT AND GIVING ADVICE ABOUT CODING AND THE api
@@ -59,7 +60,7 @@ local TowerProtectionZone = 700
 local HitChanceModifier = 0.25
 local TowerSafeZone = 350
 local LowHealthPerLevelThreshold = 20
-local FleeDistanceMulti = 1.5 -- Used for FleeModeMulti = 1 its a MULTIPLIER of OWN AA Range
+local FleeDistanceMulti = 2.0 -- Used for FleeModeMulti = 1 its a MULTIPLIER of OWN AA Range
 local FleeDistancePlain = 600 -- Used for FleeModeMulti = 2 Fixed Range (for example 650 for caitlyn AA range, roughly)
 local FleeModeMulti = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee regarding on Fixed safety range
 local FleeDistanceSingle = 0.8
@@ -71,19 +72,17 @@ ItemsADC[#ItemsADC+1] = {"wardin",3340,0,nil} 	--- Warding Totem
 ItemsADC[#ItemsADC+1] = {"long",1036,350,5} 	--- Long Sword
 ItemsADC[#ItemsADC+1] = {"vampiric",1053,550,5}	--- Vampiric Scepter
 ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,5} 	--- B.F. Sword
-ItemsADC[#ItemsADC+1] = {"bloodth",3072,1500,nil}--- Bloodthirster
+ItemsADC[#ItemsADC+1] = {"bloodth",3072,1300,nil}--- Bloodthirster
 ItemsADC[#ItemsADC+1] = {"boots",1001,300,7}	--- Boots
 ItemsADC[#ItemsADC+1] = {"berser",3006,800,nil}	--- Berserkers Greaves
 ItemsADC[#ItemsADC+1] = {"zeal",3086,1200,9}	--- Zeal
 ItemsADC[#ItemsADC+1] = {"stat",3087,1400,nil}	--- Statikk Shiv
-ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,13}	--- B.F. Sword
+ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,11}	--- B.F. Sword
+ItemsADC[#ItemsADC+1] = {"infin",3031,2400,nil} --- Infinity Edge
+ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,13}--- Last Whisper
 ItemsADC[#ItemsADC+1] = {"pick",1037,875,13}	--- Pickaxe
-ItemsADC[#ItemsADC+1] = {"agilit",1018,800,13}	--- Cloak of Agility
-ItemsADC[#ItemsADC+1] = {"infin",3031,425,nil} 	--- Infinity Edge
-ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,15}--- Last Whisper
-ItemsADC[#ItemsADC+1] = {"sla",3034,1000,15}	--- Giant Slayer
-ItemsADC[#ItemsADC+1] = {"domini",3036,300,nil} --- Dominiks Regards
-ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,17}	--- B.F Sword
+ItemsADC[#ItemsADC+1] = {"domini",3036,625,nil} --- Dominiks Regards
+ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,15}	--- B.F Sword
 ItemsADC[#ItemsADC+1] = {"angel",3026,1100,nil}	--- Guardian Angel
 
 -- Writing Runtime Variables
@@ -260,6 +259,10 @@ function Tick()
 		return
 	end
 	
+	if IsInBuyDistance() and myHero.isChanneling then
+		BreakChannel()
+	end
+	
 	CheckTowers()
 	
 	SetBuyStance()
@@ -293,24 +296,44 @@ end
 
 function Decisionmaker(send)
 	local target = GetTarget(myHero.range*1.3)
+		local getEnemyHeros = {}
+	local getAllyHeros = {}
+	local killtarget
+	local AllyEngaging = false
 	
-	local getEnemys = 0
-	local getAllies = 0
 	if FleeModeMulti ~= 0 then
 		if FleeModeMulti == 1 then
-			getEnemys = GetHeroCount(myHero.pos, myHero.range*FleeDistanceMulti, false)
-			getAllies = GetHeroCount(myHero.pos, myHero.range*FleeDistanceMulti, true)
+			getEnemyHeros = GetHeros(myHero.pos, myHero.range*FleeDistanceMulti, false)
+			getAllyHeros = GetHeros(myHero.pos, myHero.range*FleeDistanceMulti, true)
+			killtarget = GetTarget(myHero.range*FleeDistanceMulti)
+			
+			
 		else
-			getEnemys = GetHeroCount(myHero.pos, FleeDistancePlain, false)
-			getAllies = GetHeroCount(myHero.pos, FleeDistancePlain, true)
+			getEnemyHeros = GetHeros(myHero.pos, FleeDistancePlain, false)
+			getAllyHeros = GetHeros(myHero.pos, FleeDistancePlain, true)
+			killtarget = GetTarget(FleeDistancePlain)
+			
 		end
 	else
-		getAllies = GetHeroCount(myHero.pos, FleeDistancePlain, true)
+		getAllyHeros = GetHeros(myHero.pos, FleeDistancePlain, true)
 	end
 	
-	local killtarget = GetTarget(myHero.range*2)
+	local EnemyHealth = 0
+	for i=1, #getEnemyHeros do
+		EnemyHealth = EnemyHealth + getEnemyHeros[i].health/getEnemyHeros[i].maxHealth
+	end
+			
+	local AlliesHealth = 0
+	for i=1, #getAllyHeros do
+		AlliesHealth = AlliesHealth + getAllyHeros[i].health/getAllyHeros[i].maxHealth
+		if killtarget and killtarget.pos:DistanceTo(myHero.pos)+100 < killtarget.pos:DistanceTo(getAllyHeros[i].pos) then
+			AllyEngaging = true
+		end
+	end
+	AlliesHealth = AlliesHealth + myHero.health/myHero.maxHealth
+	
 	local enemytower = GetNearestEnemyTower(myHero.pos,1100) 
-	local attackedbyminions = GetAttackedbyMinions(myHero.range*2)
+	local attackedbyminions = GetAttackedbyMinions(FleeDistancePlain)
 	local ActiveEnemyTower = GetLaneTower(lane, true, true)
 	
 	--[[
@@ -331,24 +354,26 @@ function Decisionmaker(send)
 		BotOrb:Orbwalk()
 	end
 					
+	--print((#getAllyHeros+1) .. " " .. #getEnemyHeros .. " ")
+	
 	if (myHero.health < myHero.maxHealth*0.8 or myHero.mana < myHero.maxMana*0.8) and IsInBuyDistance() then
 		drawables[2] = {"Wait and Heal Up ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		ResetModes(nil)
 	elseif enemytower and enemytower.targetID == myHero.networkID then
 		drawables[2] = {"Flee from Tower ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif getEnemys > getAllies then
+	elseif #getEnemyHeros > #getAllyHeros+1 then
 		drawables[2] = {"Flee from Enemies ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
-	elseif not enemytower and killtarget and (killtarget.health < killtarget.maxHealth*0.3 or killtarget.health+myHero.maxHealth*0.25 < myHero.health) then
+	elseif not enemytower and killtarget and #getEnemyHeros < 2 and (killtarget.health < killtarget.maxHealth*0.3 or killtarget.health+myHero.maxHealth*0.25 < myHero.health) then
 		drawables[2] = {"Kill Attempt on " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Combo(killtarget,true)
 	elseif myHero.health < myHero.maxHealth*0.35 and not IsInBuyDistance() then
 		drawables[2] = {"Flee and Recall ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}	
 		Recall(send, true)
-	--elseif not enemytower and killtarget and getEnemys < getAllies then
-		--drawables[2] = {"Teamfighting to " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
-		--Combo(killtarget,true)
+	elseif not enemytower and #getAllyHeros > 0 and killtarget and #getEnemyHeros <= #getAllyHeros+1 then
+		drawables[2] = {"Teamfighting to " .. killtarget.name, 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
+		Combo(killtarget,true)
 	elseif attackedbyminions > 2 and (not target or target and not IsAARange(target)) or attackedbyminions > 5 and myHero.health < myHero.maxHealth*0.7  then
 		drawables[2] = {"Flee from Minions" .. attackedbyminions .. " ", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 40, Draw.Color(255, 0, 255, 0)}
 		Flee(send,false)
@@ -603,6 +628,7 @@ function SpellLogic(send)
 end
 
 function UseSpells(send)
+
 	local SpellQ = myHero:GetSpellData(_Q)
 	local SpellW = myHero:GetSpellData(_W)
 	local SpellE = myHero:GetSpellData(_E)
@@ -1130,13 +1156,29 @@ function GetHeroCount(pos,range,allied)
 		local Hero = Game.Hero(i)
 		if Hero.dead ~= true and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
 			local enemy = GetTarget(range)
-			if not allied or allied and (enemy and enemy.pos:DistanceTo(Hero.pos) < enemy.pos:DistanceTo(myHero.pos) or not enemy) and Hero ~= myHero then
+			if not allied or allied and (enemy and enemy.pos:DistanceTo(Hero.pos) < enemy.pos:DistanceTo(myHero.pos)+100 or not enemy) and Hero ~= myHero then
 				near = near + 1
 			end
 		end
 	end
 	return near
 end
+
+function GetHeros(pos,range,allied)
+	local near = {}
+	for i = 1, Game.HeroCount() do
+		local Hero = Game.Hero(i)
+		if Hero.dead ~= true and Hero.isEnemy ~= allied and Hero.visible and pos:DistanceTo(Hero.pos) < range then
+			local enemy = GetTarget(range)
+			if not allied or allied and (enemy and enemy.pos:DistanceTo(Hero.pos) < enemy.pos:DistanceTo(myHero.pos)+200 or not enemy) and Hero ~= myHero then
+				table.insert(near, Hero)
+
+			end
+		end
+	end
+	return near
+end
+
 
 function GetNearestEnemyTower(pos,range)
 	for i = 1, Game.TurretCount() do
