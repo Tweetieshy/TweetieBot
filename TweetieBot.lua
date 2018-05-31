@@ -1,8 +1,4 @@
-if FileExist(COMMON_PATH .. "HPred.lua") then
-	require 'HPred'
-	PrintChat("HPred library for Tweetiebot loaded")
-end
-
+require 'Eternal Prediction'
 
 -- tWEETIEbOT bY tWEETIESHY FOR gOs eXTERNAL
 -- sPECIAL THANKS TO RMAN,wEEDLE AND sHULEPIN FOR HELPING ME WITH DEBUGGING; 
@@ -611,19 +607,18 @@ function UseSpells(send)
 	local SpellW = myHero:GetSpellData(_W)
 	local SpellE = myHero:GetSpellData(_E)
 	local SpellR = myHero:GetSpellData(_R)
-	
+
 	local range = t(SpellQ.range < MaxSpellRange, SpellQ.range , 0)
 	range = t(SpellQ.range == 0, GetAARangeTo(nil) , range) --and SpellQ.range < MaxSpellRange
 	local target = GetNearestEnemy(myHero.pos,range,true)	
-	--p-rint("Q Range " .. range .. " " .. tostring(target) .. " " .. SpellQ.cd)
-	if send and Ready(_Q) and target and SpellQ.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...
-
-		if SpellQ.range == 0 or SpellQ.width == 0 then -- no range
+	if send and Ready(_Q) and target then	
+		if SpellQ.range == 0 then -- no range
 			Control.CastSpell(HK_Q)	
 			CastStart = true
 		else
-			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellQ.speed, SpellQ.width, true, 1)
-			if CastPos then
+			local pred = GetPrediction(target,{SpellQ.speed, SpellQ.delay,range})
+			local CastPos = t(SpellQ.width, target.pos, pred.castPos)
+			if DoesSpellHit(pred) or SpellQ.width == 0 then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_Q, CastPos)
@@ -637,15 +632,15 @@ function UseSpells(send)
 	
 	range = t(SpellW.range < MaxSpellRange, SpellW.range , 0)
 	range = t(SpellW.range == 0, GetAARangeTo(nil) , range) --and SpellW.range < MaxSpellRange
-	target = GetNearestEnemy(myHero.pos,range,true)	
-	--print("W Range " .. range .. " " .. tostring(target) .. " " .. SpellW.cd)
-	if send and Ready(_W) and target and SpellW.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...	
-		if SpellW.range == 0 or SpellW.width == 0 then -- no range
+	local target = GetNearestEnemy(myHero.pos,range,true)	
+	if send and Ready(_W) and target then	
+		if SpellW.range == 0 then -- no range
 			Control.CastSpell(HK_W)	
 			CastStart = true
 		else
-			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellW.speed, SpellW.width, true, 1)
-			if CastPos then
+			local pred = GetPrediction(target,{SpellW.speed, SpellW.delay,range})
+			local CastPos = t(SpellW.width, target.pos, pred.castPos)
+			if DoesSpellHit(pred) or SpellW.width == 0 then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_W, CastPos)
@@ -658,16 +653,15 @@ function UseSpells(send)
 	
 	range = t(SpellE.range < MaxSpellRange, SpellE.range, 0)
 	range = t(SpellE.range == 0, GetAARangeTo(nil) , range) --and SpellE.range < MaxSpellRange
-	target = GetNearestEnemy(myHero.pos,range,true)	
-	--print("E Range " .. range .. " " .. tostring(target) .. " " .. SpellE.cd)	
-	if send and Ready(_E) and target and SpellE.cd > 1.0 then -- all below cd 1 are considered "toggles" dont use that...	
-		--p-rint("cast E attempt " .. range)
-		if SpellE.range == 0 or SpellE.width == 0 then -- no range
+	local target = GetNearestEnemy(myHero.pos,range,true)	
+	if send and Ready(_E) and target then	
+		if SpellE.range == 0 then -- no range
 			Control.CastSpell(HK_E)	
 			CastStart = true
 		else
-			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellE.speed, SpellE.width, true, 1)
-			if CastPos then
+			local pred = GetPrediction(target,{SpellE.speed, SpellE.delay,range})
+			local CastPos = t(SpellE.width, target.pos, pred.castPos)
+			if DoesSpellHit(pred) or SpellE.width == 0 then
 				Orb(false)
 				Control.SetCursorPos(CastPos)
 				Control.CastSpell(HK_E, CastPos)
@@ -681,19 +675,16 @@ function UseSpells(send)
 	
 	range = t(SpellR.range < MaxSpellRange, SpellR.range , MaxSpellRange)
 	local target = GetLowEnemy(myHero.pos,range,true)
-	if send and Ready(_R) and target and (target.health < target.levelData.lvl*LowHealthPerLevelThreshold or target.health/target.maxHealth < 0.25) then	
+	if send and Ready(_R) and target and (target.health < target.levelData.lvl*LowHealthPerLevelThreshold or target.health/target.maxHealth < 0.3) then	
 		if SpellR.range == 0 then -- no range
 			Control.CastSpell(HK_R)	
 			CastStart = true
-		else
-			local HitChance, CastPos = HPred:GetUnreliableTarget(myHero.pos, range, 0.2, SpellR.speed, SpellR.width, false, 1)
-			if CastPos then
-				Orb(false)
-				Control.SetCursorPos(CastPos)
-				Control.CastSpell(HK_R, CastPos)
-				GlobalTarget = target
-				CastStart = true
-			end
+		else			
+			Orb(false)
+			Control.SetCursorPos(target.pos)
+			Control.CastSpell(HK_R, target.pos)
+			GlobalTarget = target
+			CastStart = true
 		end
 		--p-rint(target.name .. " R " .. target.pos:DistanceTo(myHero.pos) .. " " .. range)
 	end
@@ -1338,8 +1329,6 @@ function IsUnderTower(object,allied)
 end
 
 function GetPrediction(target,Spelldata)
-	local hitchance, pos  = HPred:GetUnreliableTarget(source, range, delay, speed, radius, checkCollision, minimumHitChance, whitelist, isLine)
-	
 	local spell = Prediction:SetSpell(Spelldata, TYPE_LINEAR, true)
 	return spell:GetPrediction(target,myHero.pos) 
 end
@@ -1496,10 +1485,7 @@ end
 
 
 Callback.Add("Load", function()
-	if not FileExist(COMMON_PATH .. "HPred.lua") then 
-		PrintChat("Required Libs (HPRED) not Found, exiting Tweetiebot")
-		return 
-	end
+	if not _G.Prediction_Loaded then return end
 	__init()
 	print("Tweetieshy Bot "..ScriptVersion.." Loaded")
 end)
