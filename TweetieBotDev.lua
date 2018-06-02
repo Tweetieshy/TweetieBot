@@ -76,15 +76,15 @@ ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,5} 	--- B.F. Sword
 ItemsADC[#ItemsADC+1] = {"bloodth",3072,1300,nil}--- Bloodthirster
 ItemsADC[#ItemsADC+1] = {"boots",1001,300,7}	--- Boots
 ItemsADC[#ItemsADC+1] = {"berser",3006,800,nil}	--- Berserkers Greaves
-ItemsADC[#ItemsADC+1] = {"zeal",3086,1200,9}	--- Zeal
-ItemsADC[#ItemsADC+1] = {"stat",3087,1400,nil}	--- Statikk Shiv
+ItemsADC[#ItemsADC+1] = {"zeal",3086,1300,9}	--- Zeal
+ItemsADC[#ItemsADC+1] = {"stat",3087,1600,nil}	--- Statikk Shiv
 ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,11}	--- B.F. Sword
 ItemsADC[#ItemsADC+1] = {"infin",3031,2400,nil} --- Infinity Edge
 ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,14}--- Last Whisper
 ItemsADC[#ItemsADC+1] = {"pick",1037,875,14}	--- Pickaxe
 ItemsADC[#ItemsADC+1] = {"domini",3036,625,nil} --- Dominiks Regards
 ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,16}	--- B.F Sword
-ItemsADC[#ItemsADC+1] = {"angel",3026,1100,nil}	--- Guardian Angel
+ItemsADC[#ItemsADC+1] = {"angel",3026,1500,nil}	--- Guardian Angel
 
 -- Writing Runtime Variables
 local TextsOnKill = {}
@@ -266,6 +266,10 @@ function Tick()
 	end
 	
 	CheckTowers()
+	
+	if myHero.dead then
+		ResetModes(nil)
+	end
 	
 	SetBuyStance()
 	
@@ -1391,7 +1395,6 @@ function SetBuyStance()
 	if not buystance and IsInBuyDistance() and CanAffordNextItem() then
 		--p-rint("Start Buy items")
 		buystance = true
-		ResetModes(nil)
 		CheckItems()
 	elseif buystance and (not IsInBuyDistance() or not CanAffordNextItem()) and (buystate == 0 or buystate == 6) then
 		--p-rint("End Buy items")

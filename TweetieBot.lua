@@ -65,6 +65,7 @@ local FleeDistancePlain = 600 -- Used for FleeModeMulti = 2 Fixed Range (for exa
 local FleeModeMulti = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee regarding on Fixed safety range
 local FleeDistanceSingle = 0.8
 local FleeModeSingle = 1 -- 0 = no Flee, 1 = Flee relative to my AA Range, 2 = Flee Regarding Enemy AA Range 
+local TeamfightEngagingSafety = 0.8 -- AARangeMult
 
 --- Buy Items Config
 local ItemsADC = {} --- Item search, ID, (Upgrade) Costs, Final Item
@@ -75,15 +76,15 @@ ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,5} 	--- B.F. Sword
 ItemsADC[#ItemsADC+1] = {"bloodth",3072,1300,nil}--- Bloodthirster
 ItemsADC[#ItemsADC+1] = {"boots",1001,300,7}	--- Boots
 ItemsADC[#ItemsADC+1] = {"berser",3006,800,nil}	--- Berserkers Greaves
-ItemsADC[#ItemsADC+1] = {"zeal",3086,1200,9}	--- Zeal
-ItemsADC[#ItemsADC+1] = {"stat",3087,1400,nil}	--- Statikk Shiv
+ItemsADC[#ItemsADC+1] = {"zeal",3086,1300,9}	--- Zeal
+ItemsADC[#ItemsADC+1] = {"stat",3087,1600,nil}	--- Statikk Shiv
 ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,11}	--- B.F. Sword
 ItemsADC[#ItemsADC+1] = {"infin",3031,2400,nil} --- Infinity Edge
-ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,13}--- Last Whisper
-ItemsADC[#ItemsADC+1] = {"pick",1037,875,13}	--- Pickaxe
+ItemsADC[#ItemsADC+1] = {"whisper",3035,1300,14}--- Last Whisper
+ItemsADC[#ItemsADC+1] = {"pick",1037,875,14}	--- Pickaxe
 ItemsADC[#ItemsADC+1] = {"domini",3036,625,nil} --- Dominiks Regards
-ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,15}	--- B.F Sword
-ItemsADC[#ItemsADC+1] = {"angel",3026,1100,nil}	--- Guardian Angel
+ItemsADC[#ItemsADC+1] = {"b.f.",1038,1300,16}	--- B.F Sword
+ItemsADC[#ItemsADC+1] = {"angel",3026,1500,nil}	--- Guardian Angel
 
 -- Writing Runtime Variables
 local TextsOnKill = {}
@@ -203,6 +204,7 @@ function __init()
 	HK_STOP = BotOrb.Menu.Keys.HoldPosButton:Key()
 	
 	LoadMenu()
+	Tweetiebot.Enable:Value(false)
 	Callback.Add("Tick", function() Tick() end)
 	Callback.Add("Draw", function() GDraw() end)
 end
@@ -265,6 +267,10 @@ function Tick()
 	
 	CheckTowers()
 	
+	if myHero.dead then
+		ResetModes(nil)
+	end
+	
 	SetBuyStance()
 	
 	if send then
@@ -326,7 +332,7 @@ function Decisionmaker(send)
 	local AlliesHealth = 0
 	for i=1, #getAllyHeros do
 		AlliesHealth = AlliesHealth + getAllyHeros[i].health/getAllyHeros[i].maxHealth
-		if killtarget and killtarget.pos:DistanceTo(myHero.pos)+100 < killtarget.pos:DistanceTo(getAllyHeros[i].pos) then
+		if killtarget and killtarget.pos:DistanceTo(myHero.pos)+myHero.range*TeamfightEngagingSafety < killtarget.pos:DistanceTo(getAllyHeros[i].pos) then
 			AllyEngaging = true
 		end
 	end
@@ -493,16 +499,16 @@ function Clear(send)
 			
 			local TowerTowardBase = GetNextTowerTowardsBase(lane, nil) -- we dont need a Tower that is alive, its just for position calculating
 			
-			if minion.pos:DistanceTo(myHero.pos) > GetAARangeTo(minion)*0.9 or GetAARangeTo(minion) > 300 and minion.pos:DistanceTo(myHero.pos) < GetAARangeTo(minion)*0.6 then
+			if minion.pos:DistanceTo(myHero.pos) > GetAARangeTo(minion)*0.9 or GetAARangeTo(minion) > 300 and minion.pos:DistanceTo(myHero.pos) < GetAARangeTo(minion)*0.4 then
 				drawables[4] = {"Reposition and Farm", 20, myHero.pos:To2D().x - 33, myHero.pos:To2D().y + 90, Draw.Color(255, 0, 255, 0)}
 				if TowerTowardBase then
 					--drawables[5] = {myHero.pos:To2D(),minion.pos:Extended(TowerTowardBase, GetAARangeTo(minion)*0.9):To2D(), Draw.Color(255, 0, 255, 0)}
-					local walkpos = minion.pos:Extended(TowerTowardBase, GetAARangeTo(minion)*0.9)
+					local walkpos = minion.pos:Extended(TowerTowardBase, GetAARangeTo(minion)*0.8)
 					walkpos = t(walkpos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(walkpos,MoveRange), walkpos)
 					Control.SetCursorPos(t(walkpos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(walkpos,MoveRange), walkpos))
 				else --for strange reasons we dont find a next tower, take base pos
 					--drawables[5] = {myHero.pos:To2D(),minion.pos:Extended(myHero.pos, GetAARangeTo(minion)*0.9):To2D(), Draw.Color(255, 0, 255, 0)}
-					local walkpos = minion.pos:Extended(StartPoint, GetAARangeTo(minion)*0.9)
+					local walkpos = minion.pos:Extended(StartPoint, GetAARangeTo(minion)*0.8)
 					walkpos = t(walkpos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(walkpos,MoveRange), walkpos)
 					Control.SetCursorPos(t(walkpos:DistanceTo(myHero.pos) > MoveRange, myHero.pos:Extended(walkpos,MoveRange), walkpos))
 				end
@@ -1389,7 +1395,6 @@ function SetBuyStance()
 	if not buystance and IsInBuyDistance() and CanAffordNextItem() then
 		--p-rint("Start Buy items")
 		buystance = true
-		ResetModes(nil)
 		CheckItems()
 	elseif buystance and (not IsInBuyDistance() or not CanAffordNextItem()) and (buystate == 0 or buystate == 6) then
 		--p-rint("End Buy items")

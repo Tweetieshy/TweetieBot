@@ -43,13 +43,12 @@ newest Readme: https://github.com/Tweetieshy/TweetieBot/blob/master/Readme.txt
 		Avoids enemy Turrets (most of time)
 		Script update speed will take the same frequency as movement delay configured in ICs, i recommend not higher then 250 since its not needed higher and higher frequencies make it maybe more detectable by RIOT while not adding any value.
 		He uses summoners in attempt to rescue himself
-		It is compatible with ExtEvade to a certain degree, but not optimized for it.
+		It is compatible with ExtEvade but not optimized for it.
 
 
 	Any known Flaws / Bugs / Features missing?
 
 		He does not buy potions, neither use them (not implemented)
-		Does not know anything about danger zones, he will chase low enemys even when they are protected by other enemys, till he is low himself (or dead)
 		Does not follow team into teamfights, when they arent happening in his way anyway
 		Does only know one Itemset yet (configured for ADCs)
 		It can't do Championselect / automatically start games etc, thats a limitation of GoS External i cant change
