@@ -18,7 +18,7 @@ local barHeight = 8
 local barWidth = 103
 local barXOffset = 24
 local barYOffset = -8
-local Version,Author,LVersion = "v1.0","Tweetieshy","8.3"
+local Version,Author,LVersion = "v1.0","Tweetieshy","8.16"
 local EDMG = {}
 
 local HKITEM = {
@@ -561,7 +561,7 @@ function Kalista:Draw()
 	if self.Menu.Drawings.DrawDamageMinion:Value() then
 		for i = 1, Game.MinionCount() do
 		  local minion = Game.Minion(i)
-			local barPos = minion.hpBar
+			local barPos = minion.pos2D
 				if minion and minion.isEnemy and not minion.dead and barPos.onScreen and minion.visible then
 					local EDamage = (self:CanCast(_E) and self:EDMG(minion) or 0)
 					local percentage = tostring(0.1*math.floor(1000*EDamage/(minion.health))).."%"
